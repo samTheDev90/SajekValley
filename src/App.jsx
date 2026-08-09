@@ -6,7 +6,6 @@ import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, X, Info, Star,
   LayoutDashboard, CalendarDays, Compass, Loader2, FileJson, Home, Leaf,
   RotateCcw, ArrowRight, Link2, Check, Settings, UserCircle, Camera,
-  Save, Undo2,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RTooltip,
@@ -274,6 +273,79 @@ function useTripData(writable = true) {
   };
 
   return [data, setData, status];
+}
+
+/* ============================== SHARED SYNC (System credentials - Firebase) ============================== */
+
+const DEFAULT_CREDENTIALS = {
+  adminPw: "admin2026",
+  memberCreds: {},      // { participantId: { username, password } }
+  adminMembers: [],     // participantIds
+};
+
+function useSystemCredentials() {
+  const [creds, setCredsLocal] = useState(DEFAULT_CREDENTIALS);
+  const [status, setStatus] = useState("loading");
+  const authedRef = useRef(false);
+  const firstLoad = useRef(true);
+
+  useEffect(() => {
+    let unsub = null;
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      authedRef.current = true;
+      const credRef = ref(db, "system/credentials");
+      unsub = onValue(
+        credRef,
+        (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            setCredsLocal({
+              adminPw: val.adminPw || DEFAULT_CREDENTIALS.adminPw,
+              memberCreds: val.memberCreds || {},
+              adminMembers: val.adminMembers || [],
+            });
+          } else if (firstLoad.current) {
+            // first time: seed defaults
+            dbSet(credRef, DEFAULT_CREDENTIALS);
+            setCredsLocal(DEFAULT_CREDENTIALS);
+          }
+          firstLoad.current = false;
+          setStatus("saved");
+        },
+        () => setStatus("error")
+      );
+    });
+    signInAnonymously(auth).catch(() => setStatus("error"));
+    return () => {
+      unsubAuth();
+      if (unsub) unsub();
+    };
+  }, []);
+
+  const setCredentials = (updater) => {
+    if (!authedRef.current) return;
+    setCredsLocal((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      dbSet(ref(db, "system/credentials"), next).catch(() => {});
+      return next;
+    });
+  };
+
+  const adminPw = creds.adminPw;
+  const memberCreds = creds.memberCreds;
+  const adminMembers = creds.adminMembers;
+
+  const setAdminPw = (pw) => setCredentials((prev) => ({ ...prev, adminPw: pw }));
+  const setMemberCreds = (credsObj) => setCredentials((prev) => ({ ...prev, memberCreds: credsObj }));
+  const setAdminMembers = (ids) => setCredentials((prev) => ({ ...prev, adminMembers: ids }));
+
+  return {
+    adminPw, setAdminPw,
+    memberCreds, setMemberCreds,
+    adminMembers, setAdminMembers,
+    credentialsStatus: status,
+  };
 }
 
 /* ============================== SHARED UI ============================== */
@@ -585,7 +657,7 @@ function LoadingScreen() {
   );
 }
 
-/* ============================== ADMIN SETTINGS (localStorage) ============================== */
+/* ============================== ADMIN SETTINGS (now uses Firebase credentials) ============================== */
 
 function AdminSettings({
   adminPw, setAdminPw,
@@ -622,7 +694,7 @@ function AdminSettings({
   const handleReset = () => {
     confirmAction({
       title: "Reset all credentials?",
-      message: "Admin password, all member usernames, passwords, and admin statuses will be reset to defaults.",
+      message: "Admin password, all member usernames, passwords, and admin statuses will be reset to defaults (for everyone).",
       confirmLabel: "Reset",
       onConfirm: () => {
         const defaultAdmin = "admin2026";
@@ -649,9 +721,9 @@ function AdminSettings({
   return (
     <div className="space-y-5">
       <Card className="p-4">
-        <SectionHeading eyebrow="Admin only" title="Manage credentials" />
+        <SectionHeading eyebrow="Admin only" title="Manage credentials (synced globally)" />
         <p className="text-sm text-stone-500 mb-4">
-          Set the admin password and individual logins for every traveler. Mark travelers as Admin to give them full editing rights.
+          These settings are now stored in Firebase and shared across all devices. Changes appear instantly for everyone.
         </p>
 
         <div className="space-y-4">
@@ -743,7 +815,7 @@ function AdminSettings({
           <li>Tick the "Admin?" box next to a traveler to grant them full editing access.</li>
           <li>Promoted admins will be able to change budgets, itineraries, spots, and manage credentials just like the main admin.</li>
           <li>The main admin password ("admin") always works and is always an admin.</li>
-          <li>Changes take effect immediately after saving.</li>
+          <li>Changes are saved to Firebase and sync across all devices immediately.</li>
         </ul>
       </Card>
     </div>
@@ -922,66 +994,199 @@ function MemberProfile({ memberId, data, totals }) {
   );
 }
 
-/* ============================== BUDGET (with Save / Cancel) ============================== */
+/* ============================== DASHBOARD ============================== */
+
+function Dashboard({ data, setData, totals, goTo, readOnly }) {
+  const updateMeta = (patch) => setData((d) => ({ ...d, meta: { ...d.meta, ...patch } }));
+  const pieData = totals.catTotals.filter((c) => c.total > 0);
+  const nextItem = data.itinerary[0];
+  const spentPct = totals.totalContribution > 0 ? Math.min(100, (totals.totalExpense / totals.totalContribution) * 100) : 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="relative">
+        <Ridgeline height={172} />
+        <div className="absolute inset-0 flex flex-col justify-end p-5">
+          <input
+            value={data.meta.title}
+            onChange={readOnly ? undefined : (e) => updateMeta({ title: e.target.value })}
+            disabled={readOnly}
+            className="font-display field w-full max-w-xs bg-transparent text-3xl font-semibold text-white placeholder-white/50"
+            placeholder="Trip name"
+          />
+          <input
+            value={data.meta.tagline}
+            onChange={readOnly ? undefined : (e) => updateMeta({ tagline: e.target.value })}
+            disabled={readOnly}
+            className="field mt-1 w-full max-w-xs bg-transparent text-sm text-white/80 placeholder-white/50"
+            placeholder="Tagline"
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-white">
+              <Users size={12} className="mr-1 inline" /> {totals.headcount} travelers
+            </span>
+            <input
+              value={data.meta.dateRange}
+              onChange={readOnly ? undefined : (e) => updateMeta({ dateRange: e.target.value })}
+              disabled={readOnly}
+              className="field rounded-full bg-white/15 px-3 py-1 text-xs text-white placeholder-white/60"
+              style={{ width: 130 }}
+            />
+            <input
+              value={data.meta.duration}
+              onChange={readOnly ? undefined : (e) => updateMeta({ duration: e.target.value })}
+              disabled={readOnly}
+              className="field rounded-full bg-white/15 px-3 py-1 text-xs text-white placeholder-white/60"
+              style={{ width: 130 }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard icon={PiggyBank} label="Collected" value={totals.totalContribution} tone="pine" />
+        <StatCard icon={Wallet} label="Planned Spend" value={totals.totalExpense} tone="dusk" />
+        <StatCard
+          icon={totals.reserve >= 0 ? TrendingUp : TrendingDown}
+          label={totals.reserve >= 0 ? "Emergency Reserve" : "Deficit"}
+          value={totals.reserve}
+          tone={totals.reserve >= 0 ? "bamboo" : "ember"}
+        />
+        <StatCard icon={Users} label="Per Person (avg)" value={totals.perPersonAvg} tone="cloud" />
+      </div>
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between text-xs text-stone-500">
+          <span>Collected</span>
+          <span>Planned spend vs. pool</span>
+        </div>
+        <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
+          <div
+            className="h-full rounded-full"
+            style={{ width: spentPct + "%", background: totals.reserve >= 0 ? BRAND.pine : BRAND.ember }}
+          />
+        </div>
+        <div className="mt-2 flex items-center gap-1 text-xs text-stone-500">
+          <Info size={12} />
+          <span>
+            {totals.reserve >= 0
+              ? fmt(totals.reserve) + " left over as your emergency reserve."
+              : "Expenses exceed contributions by " + fmt(Math.abs(totals.reserve)) + " — top up or trim a category."}
+          </span>
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <SectionHeading eyebrow="Where the money goes" title="Expense mix" />
+        {pieData.length === 0 ? (
+          <EmptyState icon={Wallet} title="No expenses yet" message="Add a category in Budget to see the breakdown." />
+        ) : (
+          <div key={totals.totalExpense}>
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} dataKey="total" nameKey="name" innerRadius={52} outerRadius={82} paddingAngle={2}>
+                    {pieData.map((entry, idx) => (
+                      <Cell key={entry.id} fill={PIE_COLORS[idx % PIE_COLORS.length]} stroke="#fff" strokeWidth={2} />
+                    ))}
+                  </Pie>
+                  <RTooltip formatter={(v) => fmt(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {pieData.map((c, idx) => (
+                <div key={c.id} className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 truncate text-stone-600">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                    {clampText(c.name, 16)}
+                  </span>
+                  <span className="font-num shrink-0 text-stone-700">{fmt(c.total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-4">
+        <SectionHeading
+          eyebrow={totals.headcount + " travelers"}
+          title="Who's in"
+          action={
+            <button onClick={() => goTo("budget")} className="flex items-center gap-1 text-xs font-medium" style={{ color: BRAND.cloud }}>
+              Manage <ArrowRight size={12} />
+            </button>
+          }
+        />
+        <div className="flex flex-wrap gap-2">
+          {data.participants.slice(0, 8).map((p) => (
+            <span key={p.id} className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-600">
+              {p.name || "Unnamed"}
+            </span>
+          ))}
+          {data.participants.length > 8 && (
+            <span className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-500">+{data.participants.length - 8} more</span>
+          )}
+          {data.participants.length === 0 && <span className="text-sm text-stone-400">No travelers yet.</span>}
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <SectionHeading
+          eyebrow="Next up"
+          title={nextItem ? nextItem.title : "No plan yet"}
+          action={
+            <button onClick={() => goTo("itinerary")} className="flex items-center gap-1 text-xs font-medium" style={{ color: BRAND.cloud }}>
+              Full itinerary <ArrowRight size={12} />
+            </button>
+          }
+        />
+        {nextItem ? (
+          <div className="flex items-center gap-2 text-sm text-stone-600">
+            <Clock size={14} color={BRAND.bamboo} />
+            <span>Day {nextItem.day} · {nextItem.period}{nextItem.time ? " · " + nextItem.time : ""}</span>
+          </div>
+        ) : (
+          <p className="text-sm text-stone-500">Add your first stop in the Itinerary tab.</p>
+        )}
+      </Card>
+
+      <Card className="p-4">
+        <SectionHeading eyebrow="Keep track" title="Trip notes" />
+        <TextArea
+          value={data.meta.notes}
+          onChange={readOnly ? undefined : (v) => updateMeta({ notes: v })}
+          placeholder="Anything the group should remember — who's bringing what, contact numbers, packing list…"
+          rows={4}
+          disabled={readOnly}
+        />
+      </Card>
+    </div>
+  );
+}
+
+/* ============================== BUDGET ============================== */
 
 function Budget({ data, setData, totals, confirmAction, readOnly }) {
-  const [draft, setDraft] = useState(null);
   const [showMatrix, setShowMatrix] = useState(false);
 
-  useEffect(() => {
-    if (draft === null) {
-      setDraft(JSON.parse(JSON.stringify(data)));
-    }
-  }, [data, draft]);
-
-  const isDirty = draft !== null && JSON.stringify({
-    participants: draft.participants,
-    categories: draft.categories,
-    foodItems: draft.foodItems,
-    allocationRule: draft.allocationRule,
-  }) !== JSON.stringify({
-    participants: data.participants,
-    categories: data.categories,
-    foodItems: data.foodItems,
-    allocationRule: data.allocationRule,
-  });
-
-  const workingData = draft || data;
-  const workingTotals = computeTotals(workingData);
-
-  const updateDraft = (updater) => {
-    setDraft((prev) => {
-      const current = prev || JSON.parse(JSON.stringify(data));
-      return typeof updater === "function" ? updater(current) : updater;
-    });
-  };
-
-  const saveChanges = () => {
-    if (!draft) return;
-    setData(draft);
-    setDraft(null);
-  };
-
-  const cancelChanges = () => {
-    setDraft(null);
-  };
-
   const updateParticipant = (id, patch) =>
-    updateDraft((d) => ({ ...d, participants: d.participants.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
+    setData((d) => ({ ...d, participants: d.participants.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
   const addParticipant = () =>
-    updateDraft((d) => ({ ...d, participants: [...d.participants, { id: uid("p"), name: "New Traveler", contribution: 0, avatar: "" }] }));
+    setData((d) => ({ ...d, participants: [...d.participants, { id: uid("p"), name: "New Traveler", contribution: 0, avatar: "" }] }));
   const removeParticipant = (id, name) =>
     confirmAction({
       title: "Remove traveler?",
       message: (name || "This traveler") + " will be removed and every total will recalculate.",
       confirmLabel: "Remove",
-      onConfirm: () => updateDraft((d) => ({ ...d, participants: d.participants.filter((p) => p.id !== id) })),
+      onConfirm: () => setData((d) => ({ ...d, participants: d.participants.filter((p) => p.id !== id) })),
     });
 
   const updateCategory = (id, patch) =>
-    updateDraft((d) => ({ ...d, categories: d.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
+    setData((d) => ({ ...d, categories: d.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
   const addCategory = () =>
-    updateDraft((d) => ({
+    setData((d) => ({
       ...d,
       categories: [...d.categories, { id: uid("c"), name: "New Category", icon: "other", mode: "fixed", rate: 0, fixed: 0, useFoodRate: false, note: "" }],
     }));
@@ -990,38 +1195,27 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
       title: "Remove category?",
       message: '"' + name + '" and its cost will be removed from every traveler\'s share.',
       confirmLabel: "Remove",
-      onConfirm: () => updateDraft((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== id) })),
+      onConfirm: () => setData((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== id) })),
     });
 
   const updateFoodItem = (id, patch) =>
-    updateDraft((d) => ({ ...d, foodItems: d.foodItems.map((f) => (f.id === id ? { ...f, ...patch } : f)) }));
+    setData((d) => ({ ...d, foodItems: d.foodItems.map((f) => (f.id === id ? { ...f, ...patch } : f)) }));
   const addFoodItem = () =>
-    updateDraft((d) => ({ ...d, foodItems: [...d.foodItems, { id: uid("f"), name: "New item", amount: 0 }] }));
+    setData((d) => ({ ...d, foodItems: [...d.foodItems, { id: uid("f"), name: "New item", amount: 0 }] }));
   const removeFoodItem = (id) =>
-    updateDraft((d) => ({ ...d, foodItems: d.foodItems.filter((f) => f.id !== id) }));
+    setData((d) => ({ ...d, foodItems: d.foodItems.filter((f) => f.id !== id) }));
 
-  const linkedCategoryNames = workingData.categories.filter((c) => c.mode === "per-person" && c.useFoodRate).map((c) => c.name);
+  const linkedCategoryNames = data.categories.filter((c) => c.mode === "per-person" && c.useFoodRate).map((c) => c.name);
 
   return (
     <div className="space-y-5">
-      {!readOnly && isDirty && (
-        <div className="flex items-center justify-end gap-2 mb-2">
-          <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
-            <Undo2 size={15} /> Cancel
-          </button>
-          <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
-            <Save size={15} /> Save changes
-          </button>
-        </div>
-      )}
-
       <Card className="p-4">
         <SectionHeading
-          eyebrow={fmt(workingTotals.totalContribution) + " collected"}
+          eyebrow={fmt(totals.totalContribution) + " collected"}
           title="Participants"
           action={!readOnly && <IconBtn icon={Plus} onClick={addParticipant} label="Add traveler" tone="pine" />}
         />
-        {workingData.participants.length === 0 ? (
+        {data.participants.length === 0 ? (
           <EmptyState icon={Users} title="No travelers yet" message="Add everyone chipping in — contributions and shares update automatically." />
         ) : (
           <div className="overflow-x-auto">
@@ -1036,8 +1230,8 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
                 </tr>
               </thead>
               <tbody>
-                {workingData.participants.map((p) => {
-                  const share = personTotalShare(p, workingTotals, workingData);
+                {data.participants.map((p) => {
+                  const share = personTotalShare(p, totals, data);
                   const balance = num(Number(p.contribution)) - share;
                   return (
                     <tr key={p.id} className="border-t border-stone-100">
@@ -1063,9 +1257,9 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
               <tfoot>
                 <tr className="border-t-2 border-stone-200 font-medium">
                   <td className="pt-2">Total</td>
-                  <td className="font-num pt-2">{fmt(workingTotals.totalContribution)}</td>
-                  <td className="font-num pt-2">{fmt(workingTotals.totalExpense)}</td>
-                  <td className="font-num pt-2" style={{ color: workingTotals.reserve < 0 ? BRAND.ember : BRAND.pine }}>{fmt(workingTotals.reserve)}</td>
+                  <td className="font-num pt-2">{fmt(totals.totalContribution)}</td>
+                  <td className="font-num pt-2">{fmt(totals.totalExpense)}</td>
+                  <td className="font-num pt-2" style={{ color: totals.reserve < 0 ? BRAND.ember : BRAND.pine }}>{fmt(totals.reserve)}</td>
                   {!readOnly && <td></td>}
                 </tr>
               </tfoot>
@@ -1077,19 +1271,19 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
       <Card className="p-4">
         <SectionHeading title="How costs are split" />
         {readOnly ? (
-          <p className="text-sm text-stone-600">{workingData.allocationRule === "contribution" ? "By contribution ratio" : "Equal split"}</p>
+          <p className="text-sm text-stone-600">{data.allocationRule === "contribution" ? "By contribution ratio" : "Equal split"}</p>
         ) : (
           <>
             <Segmented
-              value={workingData.allocationRule}
-              onChange={(v) => updateDraft((d) => ({ ...d, allocationRule: v }))}
+              value={data.allocationRule}
+              onChange={(v) => setData((d) => ({ ...d, allocationRule: v }))}
               options={[
                 { value: "contribution", label: "By contribution ratio" },
                 { value: "equal", label: "Equal split" },
               ]}
             />
             <p className="mt-2 text-xs text-stone-500">
-              {workingData.allocationRule === "contribution"
+              {data.allocationRule === "contribution"
                 ? "Matches your original sheet: each traveler's share of every cost equals their share of the total pool."
                 : "Every cost divides evenly across all travelers, regardless of who contributed what — useful once contributions differ."}
             </p>
@@ -1099,12 +1293,12 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
 
       <Card className="p-4">
         <SectionHeading
-          eyebrow={fmt(workingTotals.totalExpense) + " planned"}
+          eyebrow={fmt(totals.totalExpense) + " planned"}
           title="Expense categories"
           action={!readOnly && <IconBtn icon={Plus} onClick={addCategory} label="Add category" tone="pine" />}
         />
         <div className="space-y-3">
-          {workingTotals.catTotals.map((c) => {
+          {totals.catTotals.map((c) => {
             const Icon = CATEGORY_ICONS[c.icon] || Package;
             return (
               <div key={c.id} className="rounded-xl border border-stone-100 p-3">
@@ -1136,7 +1330,7 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
                       <div className="flex items-center gap-1 text-sm">
                         <span className="text-stone-400">Rate/person</span>
                         <NumberInput
-                          value={c.useFoodRate ? workingTotals.foodRate : c.rate}
+                          value={c.useFoodRate ? totals.foodRate : c.rate}
                           onChange={(v) => updateCategory(c.id, { rate: v })}
                           disabled={readOnly || c.useFoodRate}
                           className="w-20"
@@ -1151,7 +1345,7 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
                           <Link2 size={11} /> Food breakdown
                         </button>
                       )}
-                      <span className="font-num text-sm text-stone-500">&times; {workingTotals.headcount} = {fmt(c.total)}</span>
+                      <span className="font-num text-sm text-stone-500">&times; {totals.headcount} = {fmt(c.total)}</span>
                     </div>
                   )}
                 </div>
@@ -1163,14 +1357,14 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
       </Card>
 
       <Card className="p-4">
-        <SectionHeading eyebrow={fmt(workingTotals.foodRate) + " / person"} title="Food breakdown" />
+        <SectionHeading eyebrow={fmt(totals.foodRate) + " / person"} title="Food breakdown" />
         <p className="mb-2 text-xs text-stone-500">
           {linkedCategoryNames.length > 0
             ? "Powers: " + linkedCategoryNames.join(", ")
             : 'Not linked to a category yet — toggle "Food breakdown" on a per-person category above to use this total.'}
         </p>
         <div className="space-y-2">
-          {workingData.foodItems.map((f) => (
+          {data.foodItems.map((f) => (
             <div key={f.id} className="flex items-center gap-2">
               <TextInput value={f.name} onChange={(v) => updateFoodItem(f.id, { name: v })} className="flex-1" disabled={readOnly} />
               <NumberInput value={f.amount} onChange={(v) => updateFoodItem(f.id, { amount: v })} className="w-24" disabled={readOnly} />
@@ -1197,30 +1391,30 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
                 <tr className="text-left uppercase tracking-wide text-stone-400">
                   <th className="pb-2 pr-3 font-medium">Name</th>
                   <th className="pb-2 pr-3 font-medium">Contribution</th>
-                  {workingTotals.catTotals.map((c) => (
+                  {totals.catTotals.map((c) => (
                     <th key={c.id} className="pb-2 pr-3 font-medium">{clampText(c.name, 10)}</th>
                   ))}
                   <th className="pb-2 pr-3 font-medium">Total share</th>
                 </tr>
               </thead>
               <tbody>
-                {workingData.participants.map((p) => (
+                {data.participants.map((p) => (
                   <tr key={p.id} className="font-num border-t border-stone-100">
                     <td className="py-1.5 pr-3 font-sans">{p.name}</td>
                     <td className="py-1.5 pr-3">{fmt(p.contribution)}</td>
-                    {workingTotals.catTotals.map((c) => (
-                      <td key={c.id} className="py-1.5 pr-3 text-stone-600">{fmt(personCategoryShare(p, c, workingTotals, workingData))}</td>
+                    {totals.catTotals.map((c) => (
+                      <td key={c.id} className="py-1.5 pr-3 text-stone-600">{fmt(personCategoryShare(p, c, totals, data))}</td>
                     ))}
-                    <td className="py-1.5 pr-3 font-semibold">{fmt(personTotalShare(p, workingTotals, workingData))}</td>
+                    <td className="py-1.5 pr-3 font-semibold">{fmt(personTotalShare(p, totals, data))}</td>
                   </tr>
                 ))}
                 <tr className="font-num border-t-2 border-stone-200 font-semibold">
                   <td className="py-1.5 pr-3 font-sans">Total</td>
-                  <td className="py-1.5 pr-3">{fmt(workingTotals.totalContribution)}</td>
-                  {workingTotals.catTotals.map((c) => (
+                  <td className="py-1.5 pr-3">{fmt(totals.totalContribution)}</td>
+                  {totals.catTotals.map((c) => (
                     <td key={c.id} className="py-1.5 pr-3">{fmt(c.total)}</td>
                   ))}
-                  <td className="py-1.5 pr-3">{fmt(workingTotals.totalExpense)}</td>
+                  <td className="py-1.5 pr-3">{fmt(totals.totalExpense)}</td>
                 </tr>
               </tbody>
             </table>
@@ -1231,46 +1425,18 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
   );
 }
 
-/* ============================== ITINERARY (with Save / Cancel) ============================== */
+/* ============================== ITINERARY ============================== */
 
 const PERIOD_OPTIONS = ["Early Morning", "Morning", "Midday", "Afternoon", "Evening", "Night"];
 
 function Itinerary({ data, setData, confirmAction, readOnly }) {
-  const [draft, setDraft] = useState(null);
-
-  useEffect(() => {
-    if (draft === null) {
-      setDraft(JSON.parse(JSON.stringify(data)));
-    }
-  }, [data, draft]);
-
-  const isDirty = draft !== null && JSON.stringify(draft.itinerary) !== JSON.stringify(data.itinerary);
-  const workingData = draft || data;
-
-  const days = Array.from(new Set(workingData.itinerary.map((i) => i.day))).sort((a, b) => a - b);
+  const days = Array.from(new Set(data.itinerary.map((i) => i.day))).sort((a, b) => a - b);
   const maxDay = days.length ? Math.max.apply(null, days) : 0;
 
-  const updateDraft = (updater) => {
-    setDraft((prev) => {
-      const current = prev || JSON.parse(JSON.stringify(data));
-      return typeof updater === "function" ? updater(current) : updater;
-    });
-  };
-
-  const saveChanges = () => {
-    if (!draft) return;
-    setData(draft);
-    setDraft(null);
-  };
-
-  const cancelChanges = () => {
-    setDraft(null);
-  };
-
   const updateItem = (id, patch) =>
-    updateDraft((d) => ({ ...d, itinerary: d.itinerary.map((i) => (i.id === id ? { ...i, ...patch } : i)) }));
+    setData((d) => ({ ...d, itinerary: d.itinerary.map((i) => (i.id === id ? { ...i, ...patch } : i)) }));
   const addItem = (day) =>
-    updateDraft((d) => ({
+    setData((d) => ({
       ...d,
       itinerary: [...d.itinerary, { id: uid("i"), day: day, period: "Morning", time: "", title: "New stop", location: "", notes: "", risk: "" }],
     }));
@@ -1279,10 +1445,10 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
       title: "Remove itinerary item?",
       message: '"' + (title || "This item") + '" will be removed from the plan.',
       confirmLabel: "Remove",
-      onConfirm: () => updateDraft((d) => ({ ...d, itinerary: d.itinerary.filter((i) => i.id !== id) })),
+      onConfirm: () => setData((d) => ({ ...d, itinerary: d.itinerary.filter((i) => i.id !== id) })),
     });
   const addDay = () =>
-    updateDraft((d) => ({
+    setData((d) => ({
       ...d,
       itinerary: [...d.itinerary, { id: uid("i"), day: maxDay + 1, period: "Morning", time: "", title: "New stop", location: "", notes: "", risk: "" }],
     }));
@@ -1291,11 +1457,11 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
       title: "Remove Day " + day + "?",
       message: "Every item planned for this day will be removed too.",
       confirmLabel: "Remove day",
-      onConfirm: () => updateDraft((d) => ({ ...d, itinerary: d.itinerary.filter((i) => i.day !== day) })),
+      onConfirm: () => setData((d) => ({ ...d, itinerary: d.itinerary.filter((i) => i.day !== day) })),
     });
 
   const moveItem = (id, direction) => {
-    updateDraft((d) => {
+    setData((d) => {
       const list = d.itinerary.slice();
       const idx = list.findIndex((i) => i.id === id);
       const sameDay = [];
@@ -1313,22 +1479,11 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
 
   return (
     <div className="space-y-5">
-      {!readOnly && isDirty && (
-        <div className="flex items-center justify-end gap-2 mb-2">
-          <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
-            <Undo2 size={15} /> Cancel
-          </button>
-          <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
-            <Save size={15} /> Save changes
-          </button>
-        </div>
-      )}
-
       {days.length === 0 ? (
         <EmptyState icon={CalendarDays} title="No plan yet" message="Add your first day and start dropping in stops." />
       ) : (
         days.map((day) => {
-          const items = workingData.itinerary.filter((i) => i.day === day);
+          const items = data.itinerary.filter((i) => i.day === day);
           return (
             <Card key={day} className="p-4">
               <SectionHeading
@@ -1414,45 +1569,17 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
   );
 }
 
-/* ============================== SPOTS (with Save / Cancel) ============================== */
+/* ============================== SPOTS ============================== */
 
 const SPOT_CATEGORIES = ["Viewpoint", "Village", "Nature", "Landmark", "Food"];
 const PRIORITIES = ["High", "Medium", "Low"];
 
 function Spots({ data, setData, confirmAction, readOnly }) {
-  const [draft, setDraft] = useState(null);
-
-  useEffect(() => {
-    if (draft === null) {
-      setDraft(JSON.parse(JSON.stringify(data)));
-    }
-  }, [data, draft]);
-
-  const isDirty = draft !== null && JSON.stringify(draft.spots) !== JSON.stringify(data.spots);
-  const workingData = draft || data;
-
   const [filter, setFilter] = useState("all");
 
-  const updateDraft = (updater) => {
-    setDraft((prev) => {
-      const current = prev || JSON.parse(JSON.stringify(data));
-      return typeof updater === "function" ? updater(current) : updater;
-    });
-  };
-
-  const saveChanges = () => {
-    if (!draft) return;
-    setData(draft);
-    setDraft(null);
-  };
-
-  const cancelChanges = () => {
-    setDraft(null);
-  };
-
-  const updateSpot = (id, patch) => updateDraft((d) => ({ ...d, spots: d.spots.map((s) => (s.id === id ? { ...s, ...patch } : s)) }));
+  const updateSpot = (id, patch) => setData((d) => ({ ...d, spots: d.spots.map((s) => (s.id === id ? { ...s, ...patch } : s)) }));
   const addSpot = () =>
-    updateDraft((d) => ({
+    setData((d) => ({
       ...d,
       spots: [...d.spots, { id: uid("s"), name: "New spot", category: "Viewpoint", priority: "Medium", time: "", cost: 0, status: "planned", notes: "" }],
     }));
@@ -1461,24 +1588,13 @@ function Spots({ data, setData, confirmAction, readOnly }) {
       title: "Remove spot?",
       message: '"' + (name || "This spot") + '" will be removed from your plan.',
       confirmLabel: "Remove",
-      onConfirm: () => updateDraft((d) => ({ ...d, spots: d.spots.filter((s) => s.id !== id) })),
+      onConfirm: () => setData((d) => ({ ...d, spots: d.spots.filter((s) => s.id !== id) })),
     });
 
-  const visible = workingData.spots.filter((s) => filter === "all" || s.status === filter);
+  const visible = data.spots.filter((s) => filter === "all" || s.status === filter);
 
   return (
     <div className="space-y-4">
-      {!readOnly && isDirty && (
-        <div className="flex items-center justify-end gap-2 mb-2">
-          <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
-            <Undo2 size={15} /> Cancel
-          </button>
-          <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
-            <Save size={15} /> Save changes
-          </button>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <Segmented
           small
@@ -1828,10 +1944,6 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
 
 /* ============================== APP ROOT ============================== */
 
-const DEFAULT_ADMIN_PW = "admin2026";
-const DEFAULT_VIEWER_USER = "trip";
-const DEFAULT_VIEWER_PW = "sajek2026";
-
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "budget", label: "Budget", icon: Wallet },
@@ -1841,27 +1953,13 @@ const TABS = [
 ];
 
 export default function App() {
-  // ----- credentials from localStorage -----
-  const [adminPw, setAdminPw] = useState(() => {
-    try { return localStorage.getItem("trip_admin_pw") || DEFAULT_ADMIN_PW; } catch { return DEFAULT_ADMIN_PW; }
-  });
-  const [memberCreds, setMemberCreds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("trip_member_creds")) || {}; } catch { return {}; }
-  });
-  const [adminMembers, setAdminMembers] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("trip_admin_members")) || []; } catch { return []; }
-  });
-
-  // persist to localStorage
-  useEffect(() => {
-    try { localStorage.setItem("trip_admin_pw", adminPw); } catch {}
-  }, [adminPw]);
-  useEffect(() => {
-    try { localStorage.setItem("trip_member_creds", JSON.stringify(memberCreds)); } catch {}
-  }, [memberCreds]);
-  useEffect(() => {
-    try { localStorage.setItem("trip_admin_members", JSON.stringify(adminMembers)); } catch {}
-  }, [adminMembers]);
+  // ----- credentials from Firebase (replaces localStorage) -----
+  const {
+    adminPw, setAdminPw,
+    memberCreds, setMemberCreds,
+    adminMembers, setAdminMembers,
+    credentialsStatus,
+  } = useSystemCredentials();
 
   // ----- auth -----
   const [role, setRole] = useState(() => {
@@ -1892,8 +1990,8 @@ export default function App() {
       onConfirm: () => setData(DEFAULT_DATA),
     });
 
-  // show loading until trip data is ready
-  if (tripStatus === "loading") {
+  // show loading until both trip data and credentials are ready
+  if (tripStatus === "loading" || credentialsStatus === "loading") {
     return <LoadingScreen />;
   }
 
@@ -1926,7 +2024,7 @@ export default function App() {
                 return;
               }
 
-              // members
+              // members (could be admin if in adminMembers)
               for (const [id, cred] of Object.entries(memberCreds)) {
                 if (cred.username === username && cred.password === password) {
                   setRole("member");
