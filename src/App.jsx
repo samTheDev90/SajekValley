@@ -44,6 +44,7 @@ import {
   Check,
   Settings,
   UserCircle,
+  Camera,
 } from "lucide-react";
 import {
   PieChart,
@@ -179,16 +180,16 @@ const DEFAULT_DATA = {
     notes: "",
   },
   participants: [
-    { id: "p1", name: "Sadid", contribution: 6000 },
-    { id: "p2", name: "Farhan", contribution: 6000 },
-    { id: "p3", name: "Talha", contribution: 6000 },
-    { id: "p4", name: "Rifat", contribution: 6000 },
-    { id: "p5", name: "Shoaib", contribution: 6000 },
-    { id: "p6", name: "Riz", contribution: 6000 },
-    { id: "p7", name: "Shifat", contribution: 6000 },
-    { id: "p8", name: "Redwan", contribution: 6000 },
-    { id: "p9", name: "Other1", contribution: 6000 },
-    { id: "p10", name: "Other2", contribution: 6000 },
+    { id: "p1", name: "Sadid", contribution: 6000, avatar: "" },
+    { id: "p2", name: "Farhan", contribution: 6000, avatar: "" },
+    { id: "p3", name: "Talha", contribution: 6000, avatar: "" },
+    { id: "p4", name: "Rifat", contribution: 6000, avatar: "" },
+    { id: "p5", name: "Shoaib", contribution: 6000, avatar: "" },
+    { id: "p6", name: "Riz", contribution: 6000, avatar: "" },
+    { id: "p7", name: "Shifat", contribution: 6000, avatar: "" },
+    { id: "p8", name: "Redwan", contribution: 6000, avatar: "" },
+    { id: "p9", name: "Other1", contribution: 6000, avatar: "" },
+    { id: "p10", name: "Other2", contribution: 6000, avatar: "" },
   ],
   categories: [
     {
@@ -551,7 +552,7 @@ function guessField(header) {
   return "ignore";
 }
 
-/* ============================== SHARED SYNC (Firebase) ============================== */
+/* ============================== SHARED SYNC (Trip data) ============================== */
 
 const TRIP_PATH = "sajekTrip";
 
@@ -610,7 +611,86 @@ function useTripData(writable = true) {
   return [data, setData, status];
 }
 
-/* ============================== SHARED UI (cursor‑friendly inputs) ============================== */
+/* ============================== SHARED SYNC (System credentials - Firebase) ============================== */
+
+const DEFAULT_CREDENTIALS = {
+  adminPw: "admin2026",
+  memberCreds: {}, // { participantId: { username, password } }
+  adminMembers: [], // participantIds
+};
+
+function useSystemCredentials() {
+  const [creds, setCredsLocal] = useState(DEFAULT_CREDENTIALS);
+  const [status, setStatus] = useState("loading");
+  const authedRef = useRef(false);
+  const firstLoad = useRef(true);
+
+  useEffect(() => {
+    let unsub = null;
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      authedRef.current = true;
+      const credRef = ref(db, "system/credentials");
+      unsub = onValue(
+        credRef,
+        (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            setCredsLocal({
+              adminPw: val.adminPw || DEFAULT_CREDENTIALS.adminPw,
+              memberCreds: val.memberCreds || {},
+              adminMembers: val.adminMembers || [],
+            });
+          } else if (firstLoad.current) {
+            // first time: seed defaults
+            dbSet(credRef, DEFAULT_CREDENTIALS);
+            setCredsLocal(DEFAULT_CREDENTIALS);
+          }
+          firstLoad.current = false;
+          setStatus("saved");
+        },
+        () => setStatus("error"),
+      );
+    });
+    signInAnonymously(auth).catch(() => setStatus("error"));
+    return () => {
+      unsubAuth();
+      if (unsub) unsub();
+    };
+  }, []);
+
+  const setCredentials = (updater) => {
+    if (!authedRef.current) return;
+    setCredsLocal((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      dbSet(ref(db, "system/credentials"), next).catch(() => {});
+      return next;
+    });
+  };
+
+  const adminPw = creds.adminPw;
+  const memberCreds = creds.memberCreds;
+  const adminMembers = creds.adminMembers;
+
+  const setAdminPw = (pw) =>
+    setCredentials((prev) => ({ ...prev, adminPw: pw }));
+  const setMemberCreds = (credsObj) =>
+    setCredentials((prev) => ({ ...prev, memberCreds: credsObj }));
+  const setAdminMembers = (ids) =>
+    setCredentials((prev) => ({ ...prev, adminMembers: ids }));
+
+  return {
+    adminPw,
+    setAdminPw,
+    memberCreds,
+    setMemberCreds,
+    adminMembers,
+    setAdminMembers,
+    credentialsStatus: status,
+  };
+}
+
+/* ============================== SHARED UI ============================== */
 
 function CountUp({ value, prefix = "" }) {
   const [display, setDisplay] = useState(value);
@@ -816,7 +896,7 @@ function IconBtn({
   );
 }
 
-/* ---------- Cursor‑friendly TextInput ---------- */
+/* Cursor‑friendly TextInput */
 function TextInput({
   value,
   onChange,
@@ -827,7 +907,6 @@ function TextInput({
   const [local, setLocal] = useState(value);
   const inputRef = useRef(null);
 
-  // sync external value only when not focused
   useEffect(() => {
     if (document.activeElement !== inputRef.current) {
       setLocal(value);
@@ -858,7 +937,7 @@ function TextInput({
   );
 }
 
-/* ---------- Cursor‑friendly NumberInput ---------- */
+/* Cursor‑friendly NumberInput */
 function NumberInput({
   value,
   onChange,
@@ -869,7 +948,6 @@ function NumberInput({
   const [local, setLocal] = useState(String(value));
   const inputRef = useRef(null);
 
-  // sync when external value changes and we are not focused
   useEffect(() => {
     if (document.activeElement !== inputRef.current) {
       setLocal(String(value));
@@ -884,7 +962,7 @@ function NumberInput({
       if (!isNaN(parsed)) {
         onChange(parsed);
       } else if (raw === "" || raw === "-") {
-        onChange(0); // treat empty as 0
+        onChange(0);
       }
     }
   };
@@ -908,7 +986,7 @@ function NumberInput({
   );
 }
 
-/* ---------- Cursor‑friendly TextArea ---------- */
+/* Cursor‑friendly TextArea */
 function TextArea({
   value,
   onChange,
@@ -1081,7 +1159,7 @@ function LoadingScreen() {
   );
 }
 
-/* ============================== ADMIN SETTINGS ============================== */
+/* ============================== ADMIN SETTINGS (now uses Firebase credentials) ============================== */
 
 function AdminSettings({
   adminPw,
@@ -1091,7 +1169,6 @@ function AdminSettings({
   adminMembers,
   setAdminMembers,
   participants,
-  totals,
   confirmAction,
 }) {
   const [localAdminPw, setLocalAdminPw] = useState(adminPw);
@@ -1128,7 +1205,7 @@ function AdminSettings({
     confirmAction({
       title: "Reset all credentials?",
       message:
-        "Admin password, all member usernames, passwords, and admin statuses will be reset to defaults.",
+        "Admin password, all member usernames, passwords, and admin statuses will be reset to defaults (for everyone).",
       confirmLabel: "Reset",
       onConfirm: () => {
         const defaultAdmin = "admin2026";
@@ -1158,10 +1235,13 @@ function AdminSettings({
   return (
     <div className="space-y-5">
       <Card className="p-4">
-        <SectionHeading eyebrow="Admin only" title="Manage credentials" />
+        <SectionHeading
+          eyebrow="Admin only"
+          title="Manage credentials (synced globally)"
+        />
         <p className="text-sm text-stone-500 mb-4">
-          Set the admin password and individual logins for every traveler. Mark
-          travelers as Admin to give them full editing rights.
+          These settings are now stored in Firebase and shared across all
+          devices. Changes appear instantly for everyone.
         </p>
 
         <div className="space-y-4">
@@ -1287,7 +1367,10 @@ function AdminSettings({
             The main admin password ("admin") always works and is always an
             admin.
           </li>
-          <li>Changes take effect immediately after saving.</li>
+          <li>
+            Changes are saved to Firebase and sync across all devices
+            immediately.
+          </li>
         </ul>
       </Card>
     </div>
@@ -1314,27 +1397,131 @@ function MemberProfile({ memberId, data, totals }) {
     totals.totalContribution > 0
       ? (num(Number(person.contribution)) / totals.totalContribution) * 100
       : 0;
-
   const upcoming = data.itinerary.slice(0, 2);
+
+  const [nickname, setNickname] = useState(person.name);
+  const [avatar, setAvatar] = useState(person.avatar || "");
+  const [avatarPreview, setAvatarPreview] = useState(person.avatar || null);
+  const fileInputRef = useRef(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      const participantIndex = data.participants.findIndex(
+        (p) => p.id === memberId,
+      );
+      if (participantIndex === -1) return;
+      const updated = {
+        ...data.participants[participantIndex],
+        name: nickname,
+        avatar: avatar,
+      };
+      await dbSet(
+        ref(db, TRIP_PATH + "/participants/" + participantIndex),
+        updated,
+      );
+      setSaveMsg("Profile saved ✓");
+      setTimeout(() => setSaveMsg(""), 2000);
+    } catch (err) {
+      setSaveMsg("Error saving");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      setAvatar(dataUrl);
+      setAvatarPreview(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAvatarUrl = (url) => {
+    setAvatar(url);
+    setAvatarPreview(url);
+  };
 
   return (
     <div className="space-y-5">
       <Card className="p-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-full p-3" style={{ background: "#EAF1EC" }}>
-            <UserCircle size={28} color={BRAND.pine} />
-          </div>
-          <div>
-            <h2
-              className="font-display text-xl font-semibold"
-              style={{ color: BRAND.pine }}
+          <div
+            className="relative rounded-full overflow-hidden shrink-0"
+            style={{ width: 64, height: 64, background: "#EAF1EC" }}
+          >
+            {avatarPreview ? (
+              <img
+                src={avatarPreview}
+                alt="avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <UserCircle
+                size={64}
+                color={BRAND.pine}
+                className="w-full h-full"
+              />
+            )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow border border-stone-200"
+              title="Change avatar"
             >
-              {person.name}
-            </h2>
-            <p className="text-xs text-stone-500">
+              <Camera size={14} color={BRAND.pine} />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarFile}
+            />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                className="field font-display text-xl font-semibold bg-transparent border-b border-dashed border-stone-300 focus:border-stone-500 outline-none w-full"
+                style={{ color: BRAND.pine }}
+                placeholder="Your nickname"
+              />
+            </div>
+            <p className="text-xs text-stone-500 mt-1">
               Your trip contribution & share
             </p>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input
+            type="text"
+            value={avatar || ""}
+            onChange={(e) => handleAvatarUrl(e.target.value)}
+            placeholder="Paste image URL or upload"
+            className="field flex-1 rounded-lg px-2 py-1 text-xs bg-transparent"
+          />
+          <button
+            onClick={handleSaveProfile}
+            disabled={saving}
+            className="rounded-xl px-4 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+            style={{ background: BRAND.pine }}
+          >
+            {saving ? "Saving…" : "Save profile"}
+          </button>
+          {saveMsg && (
+            <span className="text-xs text-stone-500 self-center">
+              {saveMsg}
+            </span>
+          )}
         </div>
       </Card>
 
@@ -1690,7 +1877,7 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
       ...d,
       participants: [
         ...d.participants,
-        { id: uid("p"), name: "New Traveler", contribution: 0 },
+        { id: uid("p"), name: "New Traveler", contribution: 0, avatar: "" },
       ],
     }));
   const removeParticipant = (id, name) =>
@@ -2695,6 +2882,7 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
               id: uid("p"),
               name: r.name,
               contribution: r.contribution,
+              avatar: "",
             })),
           };
         }
@@ -2710,6 +2898,7 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
               id: uid("p"),
               name: r.name,
               contribution: r.contribution,
+              avatar: "",
             });
           }
         });
@@ -3018,10 +3207,6 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
 
 /* ============================== APP ROOT ============================== */
 
-const DEFAULT_ADMIN_PW = "admin2026";
-const DEFAULT_MEMBER_CREDS = {};
-const DEFAULT_ADMIN_MEMBERS = [];
-
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "budget", label: "Budget", icon: Wallet },
@@ -3031,51 +3216,16 @@ const TABS = [
 ];
 
 export default function App() {
-  // ----- credentials state -----
-  const [adminPw, setAdminPw] = useState(() => {
-    try {
-      return localStorage.getItem("trip_admin_pw") || DEFAULT_ADMIN_PW;
-    } catch {
-      return DEFAULT_ADMIN_PW;
-    }
-  });
-  const [memberCreds, setMemberCreds] = useState(() => {
-    try {
-      return (
-        JSON.parse(localStorage.getItem("trip_member_creds")) ||
-        DEFAULT_MEMBER_CREDS
-      );
-    } catch {
-      return DEFAULT_MEMBER_CREDS;
-    }
-  });
-  const [adminMembers, setAdminMembers] = useState(() => {
-    try {
-      return (
-        JSON.parse(localStorage.getItem("trip_admin_members")) ||
-        DEFAULT_ADMIN_MEMBERS
-      );
-    } catch {
-      return DEFAULT_ADMIN_MEMBERS;
-    }
-  });
-
-  // persist
-  useEffect(() => {
-    try {
-      localStorage.setItem("trip_admin_pw", adminPw);
-    } catch {}
-  }, [adminPw]);
-  useEffect(() => {
-    try {
-      localStorage.setItem("trip_member_creds", JSON.stringify(memberCreds));
-    } catch {}
-  }, [memberCreds]);
-  useEffect(() => {
-    try {
-      localStorage.setItem("trip_admin_members", JSON.stringify(adminMembers));
-    } catch {}
-  }, [adminMembers]);
+  // ----- credentials from Firebase (replaces localStorage) -----
+  const {
+    adminPw,
+    setAdminPw,
+    memberCreds,
+    setMemberCreds,
+    adminMembers,
+    setAdminMembers,
+    credentialsStatus,
+  } = useSystemCredentials();
 
   // ----- auth -----
   const [role, setRole] = useState(() => {
@@ -3099,7 +3249,7 @@ export default function App() {
     (role === "member" && adminMembers.includes(loggedInMemberId));
   const readOnly = !isAdmin;
 
-  const [data, setDataRaw, status] = useTripData(!readOnly);
+  const [data, setDataRaw, tripStatus] = useTripData(!readOnly);
   const setData = readOnly ? () => {} : setDataRaw;
   const [tab, setTab] = useState("dashboard");
   const [confirmState, setConfirmState] = useState({ open: false });
@@ -3117,6 +3267,11 @@ export default function App() {
       confirmLabel: "Reset for everyone",
       onConfirm: () => setData(DEFAULT_DATA),
     });
+
+  // show loading until both trip data and credentials are ready
+  if (tripStatus === "loading" || credentialsStatus === "loading") {
+    return <LoadingScreen />;
+  }
 
   // login gate
   if (!role) {
@@ -3159,7 +3314,6 @@ export default function App() {
               // members (could be admin if in adminMembers)
               for (const [id, cred] of Object.entries(memberCreds)) {
                 if (cred.username === username && cred.password === password) {
-                  const isMemberAdmin = adminMembers.includes(id);
                   setRole("member");
                   setLoggedInMemberId(id);
                   try {
@@ -3210,10 +3364,6 @@ export default function App() {
     );
   }
 
-  if (status === "loading") {
-    return <LoadingScreen />;
-  }
-
   // build tabs
   let tabsForRole = [];
   if (isAdmin) {
@@ -3245,15 +3395,15 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1 text-xs text-stone-400">
-              {status === "saving" && (
+              {tripStatus === "saving" && (
                 <Loader2 size={12} className="animate-spin" />
               )}
-              {status === "saved" && <Check size={12} color={BRAND.pine} />}
-              {status === "saving"
+              {tripStatus === "saved" && <Check size={12} color={BRAND.pine} />}
+              {tripStatus === "saving"
                 ? "Syncing…"
-                : status === "saved"
+                : tripStatus === "saved"
                   ? "Synced"
-                  : status === "error"
+                  : tripStatus === "error"
                     ? "Sync error"
                     : "Connecting…"}
             </span>
@@ -3302,7 +3452,7 @@ export default function App() {
         </div>
       </div>
 
-      {status === "error" && (
+      {tripStatus === "error" && (
         <div className="mx-auto max-w-3xl px-4 pt-3">
           <div
             className="flex items-start gap-2 rounded-xl p-3 text-sm"
@@ -3310,9 +3460,8 @@ export default function App() {
           >
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
             <span>
-              Can't reach the shared trip database right now. If you just
-              deployed this, double-check src/firebaseConfig.js and that
-              Anonymous sign-in is enabled in Firebase Authentication.
+              Can't reach the shared trip database right now. Check your
+              Firebase setup.
             </span>
           </div>
         </div>
@@ -3370,7 +3519,6 @@ export default function App() {
             adminMembers={adminMembers}
             setAdminMembers={setAdminMembers}
             participants={data.participants}
-            totals={totals}
             confirmAction={askConfirm}
           />
         )}
