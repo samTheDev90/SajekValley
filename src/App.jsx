@@ -276,78 +276,6 @@ function useTripData(writable = true) {
   return [data, setData, status];
 }
 
-/* ============================== SHARED SYNC (System credentials - Firebase) ============================== */
-
-const DEFAULT_CREDENTIALS = {
-  adminPw: "admin2026",
-  memberCreds: {},
-  adminMembers: [],
-};
-
-function useSystemCredentials() {
-  const [creds, setCredsLocal] = useState(DEFAULT_CREDENTIALS);
-  const [status, setStatus] = useState("loading");
-  const authedRef = useRef(false);
-  const firstLoad = useRef(true);
-
-  useEffect(() => {
-    let unsub = null;
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
-      if (!user) return;
-      authedRef.current = true;
-      const credRef = ref(db, "system/credentials");
-      unsub = onValue(
-        credRef,
-        (snapshot) => {
-          const val = snapshot.val();
-          if (val) {
-            setCredsLocal({
-              adminPw: val.adminPw || DEFAULT_CREDENTIALS.adminPw,
-              memberCreds: val.memberCreds || {},
-              adminMembers: val.adminMembers || [],
-            });
-          } else if (firstLoad.current) {
-            dbSet(credRef, DEFAULT_CREDENTIALS);
-            setCredsLocal(DEFAULT_CREDENTIALS);
-          }
-          firstLoad.current = false;
-          setStatus("saved");
-        },
-        () => setStatus("error")
-      );
-    });
-    signInAnonymously(auth).catch(() => setStatus("error"));
-    return () => {
-      unsubAuth();
-      if (unsub) unsub();
-    };
-  }, []);
-
-  const setCredentials = (updater) => {
-    if (!authedRef.current) return;
-    setCredsLocal((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      dbSet(ref(db, "system/credentials"), next).catch(() => {});
-      return next;
-    });
-  };
-
-  const adminPw = creds.adminPw;
-  const memberCreds = creds.memberCreds;
-  const adminMembers = creds.adminMembers;
-
-  const setAdminPw = (pw) => setCredentials((prev) => ({ ...prev, adminPw: pw }));
-  const setMemberCreds = (credsObj) => setCredentials((prev) => ({ ...prev, memberCreds: credsObj }));
-  const setAdminMembers = (ids) => setCredentials((prev) => ({ ...prev, adminMembers: ids }));
-
-  return {
-    adminPw, setAdminPw,
-    memberCreds, setMemberCreds,
-    adminMembers, setAdminMembers,
-    credentialsStatus: status,
-  };
-}
-
 /* ============================== SHARED UI ============================== */
 
 function CountUp({ value, prefix = "" }) {
@@ -657,7 +585,7 @@ function LoadingScreen() {
   );
 }
 
-/* ============================== ADMIN SETTINGS ============================== */
+/* ============================== ADMIN SETTINGS (localStorage) ============================== */
 
 function AdminSettings({
   adminPw, setAdminPw,
@@ -694,7 +622,7 @@ function AdminSettings({
   const handleReset = () => {
     confirmAction({
       title: "Reset all credentials?",
-      message: "Admin password, all member usernames, passwords, and admin statuses will be reset to defaults (for everyone).",
+      message: "Admin password, all member usernames, passwords, and admin statuses will be reset to defaults.",
       confirmLabel: "Reset",
       onConfirm: () => {
         const defaultAdmin = "admin2026";
@@ -721,9 +649,9 @@ function AdminSettings({
   return (
     <div className="space-y-5">
       <Card className="p-4">
-        <SectionHeading eyebrow="Admin only" title="Manage credentials (synced globally)" />
+        <SectionHeading eyebrow="Admin only" title="Manage credentials" />
         <p className="text-sm text-stone-500 mb-4">
-          These settings are now stored in Firebase and shared across all devices. Changes appear instantly for everyone.
+          Set the admin password and individual logins for every traveler. Mark travelers as Admin to give them full editing rights.
         </p>
 
         <div className="space-y-4">
@@ -815,7 +743,7 @@ function AdminSettings({
           <li>Tick the "Admin?" box next to a traveler to grant them full editing access.</li>
           <li>Promoted admins will be able to change budgets, itineraries, spots, and manage credentials just like the main admin.</li>
           <li>The main admin password ("admin") always works and is always an admin.</li>
-          <li>Changes are saved to Firebase and sync across all devices immediately.</li>
+          <li>Changes take effect immediately after saving.</li>
         </ul>
       </Card>
     </div>
@@ -1000,7 +928,6 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
   const [draft, setDraft] = useState(null);
   const [showMatrix, setShowMatrix] = useState(false);
 
-  // initialise draft once when data changes and draft is null
   useEffect(() => {
     if (draft === null) {
       setDraft(JSON.parse(JSON.stringify(data)));
@@ -1039,7 +966,6 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
     setDraft(null);
   };
 
-  // Handlers that work on draft
   const updateParticipant = (id, patch) =>
     updateDraft((d) => ({ ...d, participants: d.participants.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
   const addParticipant = () =>
@@ -1078,7 +1004,6 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
 
   return (
     <div className="space-y-5">
-      {/* Save / Cancel bar */}
       {!readOnly && isDirty && (
         <div className="flex items-center justify-end gap-2 mb-2">
           <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
@@ -1903,6 +1828,10 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
 
 /* ============================== APP ROOT ============================== */
 
+const DEFAULT_ADMIN_PW = "admin2026";
+const DEFAULT_VIEWER_USER = "trip";
+const DEFAULT_VIEWER_PW = "sajek2026";
+
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "budget", label: "Budget", icon: Wallet },
@@ -1912,13 +1841,27 @@ const TABS = [
 ];
 
 export default function App() {
-  // ----- credentials from Firebase -----
-  const {
-    adminPw, setAdminPw,
-    memberCreds, setMemberCreds,
-    adminMembers, setAdminMembers,
-    credentialsStatus,
-  } = useSystemCredentials();
+  // ----- credentials from localStorage -----
+  const [adminPw, setAdminPw] = useState(() => {
+    try { return localStorage.getItem("trip_admin_pw") || DEFAULT_ADMIN_PW; } catch { return DEFAULT_ADMIN_PW; }
+  });
+  const [memberCreds, setMemberCreds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("trip_member_creds")) || {}; } catch { return {}; }
+  });
+  const [adminMembers, setAdminMembers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("trip_admin_members")) || []; } catch { return []; }
+  });
+
+  // persist to localStorage
+  useEffect(() => {
+    try { localStorage.setItem("trip_admin_pw", adminPw); } catch {}
+  }, [adminPw]);
+  useEffect(() => {
+    try { localStorage.setItem("trip_member_creds", JSON.stringify(memberCreds)); } catch {}
+  }, [memberCreds]);
+  useEffect(() => {
+    try { localStorage.setItem("trip_admin_members", JSON.stringify(adminMembers)); } catch {}
+  }, [adminMembers]);
 
   // ----- auth -----
   const [role, setRole] = useState(() => {
@@ -1949,8 +1892,8 @@ export default function App() {
       onConfirm: () => setData(DEFAULT_DATA),
     });
 
-  // show loading until both trip data and credentials are ready
-  if (tripStatus === "loading" || credentialsStatus === "loading") {
+  // show loading until trip data is ready
+  if (tripStatus === "loading") {
     return <LoadingScreen />;
   }
 
@@ -1983,7 +1926,7 @@ export default function App() {
                 return;
               }
 
-              // members (could be admin if in adminMembers)
+              // members
               for (const [id, cred] of Object.entries(memberCreds)) {
                 if (cred.username === username && cred.password === password) {
                   setRole("member");
@@ -2129,4 +2072,4 @@ export default function App() {
       <ConfirmDialog state={confirmState} onClose={closeConfirm} />
     </div>
   );
-  }
+}
