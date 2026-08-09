@@ -657,7 +657,7 @@ function LoadingScreen() {
   );
 }
 
-/* ============================== ADMIN SETTINGS (already has its own save) ============================== */
+/* ============================== ADMIN SETTINGS ============================== */
 
 function AdminSettings({
   adminPw, setAdminPw,
@@ -1000,14 +1000,14 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
   const [draft, setDraft] = useState(null);
   const [showMatrix, setShowMatrix] = useState(false);
 
-  // When data changes externally (and we haven't started editing), reset draft
+  // initialise draft once when data changes and draft is null
   useEffect(() => {
-    if (!draft) {
-      setDraft(JSON.parse(JSON.stringify(data))); // deep copy
+    if (draft === null) {
+      setDraft(JSON.parse(JSON.stringify(data)));
     }
   }, [data, draft]);
 
-  const isDirty = draft && JSON.stringify({
+  const isDirty = draft !== null && JSON.stringify({
     participants: draft.participants,
     categories: draft.categories,
     foodItems: draft.foodItems,
@@ -1079,18 +1079,14 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
   return (
     <div className="space-y-5">
       {/* Save / Cancel bar */}
-      {!readOnly && (
+      {!readOnly && isDirty && (
         <div className="flex items-center justify-end gap-2 mb-2">
-          {isDirty && (
-            <>
-              <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
-                <Undo2 size={15} /> Cancel
-              </button>
-              <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
-                <Save size={15} /> Save changes
-              </button>
-            </>
-          )}
+          <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
+            <Undo2 size={15} /> Cancel
+          </button>
+          <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
+            <Save size={15} /> Save changes
+          </button>
         </div>
       )}
 
@@ -1318,12 +1314,12 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
   const [draft, setDraft] = useState(null);
 
   useEffect(() => {
-    if (!draft) {
+    if (draft === null) {
       setDraft(JSON.parse(JSON.stringify(data)));
     }
   }, [data, draft]);
 
-  const isDirty = draft && JSON.stringify(draft.itinerary) !== JSON.stringify(data.itinerary);
+  const isDirty = draft !== null && JSON.stringify(draft.itinerary) !== JSON.stringify(data.itinerary);
   const workingData = draft || data;
 
   const days = Array.from(new Set(workingData.itinerary.map((i) => i.day))).sort((a, b) => a - b);
@@ -1392,18 +1388,14 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
 
   return (
     <div className="space-y-5">
-      {!readOnly && (
+      {!readOnly && isDirty && (
         <div className="flex items-center justify-end gap-2 mb-2">
-          {isDirty && (
-            <>
-              <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
-                <Undo2 size={15} /> Cancel
-              </button>
-              <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
-                <Save size={15} /> Save changes
-              </button>
-            </>
-          )}
+          <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
+            <Undo2 size={15} /> Cancel
+          </button>
+          <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
+            <Save size={15} /> Save changes
+          </button>
         </div>
       )}
 
@@ -1506,12 +1498,12 @@ function Spots({ data, setData, confirmAction, readOnly }) {
   const [draft, setDraft] = useState(null);
 
   useEffect(() => {
-    if (!draft) {
+    if (draft === null) {
       setDraft(JSON.parse(JSON.stringify(data)));
     }
   }, [data, draft]);
 
-  const isDirty = draft && JSON.stringify(draft.spots) !== JSON.stringify(data.spots);
+  const isDirty = draft !== null && JSON.stringify(draft.spots) !== JSON.stringify(data.spots);
   const workingData = draft || data;
 
   const [filter, setFilter] = useState("all");
@@ -1551,18 +1543,14 @@ function Spots({ data, setData, confirmAction, readOnly }) {
 
   return (
     <div className="space-y-4">
-      {!readOnly && (
+      {!readOnly && isDirty && (
         <div className="flex items-center justify-end gap-2 mb-2">
-          {isDirty && (
-            <>
-              <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
-                <Undo2 size={15} /> Cancel
-              </button>
-              <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
-                <Save size={15} /> Save changes
-              </button>
-            </>
-          )}
+          <button onClick={cancelChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-stone-600 border border-stone-300 hover:bg-stone-50">
+            <Undo2 size={15} /> Cancel
+          </button>
+          <button onClick={saveChanges} className="flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-medium text-white" style={{ background: BRAND.pine }}>
+            <Save size={15} /> Save changes
+          </button>
         </div>
       )}
 
@@ -1644,7 +1632,7 @@ function Spots({ data, setData, confirmAction, readOnly }) {
   );
 }
 
-/* ============================== DATA: IMPORT / EXPORT (no draft needed) ============================== */
+/* ============================== DATA: IMPORT / EXPORT ============================== */
 
 function DataTab({ data, setData, confirmAction, readOnly }) {
   const [rows, setRows] = useState(null);
@@ -2141,4 +2129,4 @@ export default function App() {
       <ConfirmDialog state={confirmState} onClose={closeConfirm} />
     </div>
   );
-}
+  }
