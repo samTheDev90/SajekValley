@@ -15,7 +15,7 @@ import Papa from "papaparse";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue, set as dbSet } from "firebase/database";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import { firebaseConfig } from "./firebaseConfig.js";
+import firebaseConfig from "./firebaseConfig.js";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
