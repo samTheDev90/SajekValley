@@ -72,7 +72,7 @@ const PERIOD_ICONS = {
   Night: Moon, "Early Morning": Sunrise, Morning: Sunrise, Midday: Sun,
   Afternoon: Sun, Evening: Sunset,
 };
-const SPOT_ICONS = { Viewpoint: Mountain, Village: Home, Nature: Leaf, Landmark: MapPin, Food: UtensilsCrossed };
+const SPOT_ICONS = { Viewpoint: Mountain, Village: Home, Nature: Leaf, Landmark: MapPin, Food: UtensilsCrossed, Stay: BedDouble };
 const PRIORITY_TONE = { High: BRAND.ember, Medium: BRAND.bamboo, Low: BRAND.cloud };
 
 /* ============================== UTIL ============================== */
@@ -102,30 +102,27 @@ function clampText(s, max) {
 
 const DEFAULT_DATA = {
   meta: {
-    title: "Sajek Valley",
+    title: "Sajek 2026",
     tagline: "মেঘের রাজ্য — Land of Clouds",
-    dateRange: "September 2026",
-    duration: "2 Days · 1 Night",
-    notes: "",
+    dateRange: "23–26 September 2026",
+    duration: "3 Days · 2 Nights",
+    notes: "7 Boys • Bristir Gaan Eco Resort • Konglak Pahar\nBudget: ৳6,200 per person • Emergency buffer: ৳600",
   },
   participants: [
-    { id: "p1", name: "Sadid", contribution: 6000, avatar: "" },
-    { id: "p2", name: "Farhan", contribution: 6000, avatar: "" },
-    { id: "p3", name: "Talha", contribution: 6000, avatar: "" },
-    { id: "p4", name: "Rifat", contribution: 6000, avatar: "" },
-    { id: "p5", name: "Shoaib", contribution: 6000, avatar: "" },
-    { id: "p6", name: "Riz", contribution: 6000, avatar: "" },
-    { id: "p7", name: "Shifat", contribution: 6000, avatar: "" },
-    { id: "p8", name: "Redwan", contribution: 6000, avatar: "" },
-    { id: "p9", name: "Other1", contribution: 6000, avatar: "" },
-    { id: "p10", name: "Other2", contribution: 6000, avatar: "" },
+    { id: "p1", name: "Sadid", contribution: 6200, avatar: "" },
+    { id: "p2", name: "Farhan", contribution: 6200, avatar: "" },
+    { id: "p3", name: "Talha", contribution: 6200, avatar: "" },
+    { id: "p4", name: "Rifat", contribution: 6200, avatar: "" },
+    { id: "p5", name: "Shoaib", contribution: 6200, avatar: "" },
+    { id: "p6", name: "Riz", contribution: 6200, avatar: "" },
+    { id: "p7", name: "Shifat", contribution: 6200, avatar: "" },
   ],
   categories: [
-    { id: "c1", name: "Bus", icon: "bus", mode: "per-person", rate: 1600, fixed: 0, useFoodRate: false, note: "Dhaka ↔ Khagrachari / Dighinala coach, per seat" },
-    { id: "c2", name: "Chander Gari (CG)", icon: "car", mode: "fixed", rate: 0, fixed: 12000, useFoodRate: false, note: "Shared jeep, fixed group rate — doesn't change with headcount" },
-    { id: "c3", name: "Food", icon: "food", mode: "per-person", rate: 0, fixed: 0, useFoodRate: true, note: "Per person, per the breakdown below" },
-    { id: "c4", name: "Others", icon: "other", mode: "fixed", rate: 0, fixed: 2000, useFoodRate: false, note: "Misc / buffer spend" },
-    { id: "c5", name: "Hotel", icon: "hotel", mode: "fixed", rate: 0, fixed: 12000, useFoodRate: false, note: "Resort / cottage booking, fixed group rate" },
+    { id: "c1", name: "Bus", icon: "bus", mode: "per-person", rate: 1600, fixed: 0, useFoodRate: false, note: "Dhaka ↔ Khagrachari / Dighinala coach, per seat (7 × ৳1,600 = ৳11,200)" },
+    { id: "c2", name: "Jeep (Chander Gari)", icon: "car", mode: "fixed", rate: 0, fixed: 13000, useFoodRate: false, note: "Reserved jeep for Sajek entry/exit + local travel — fixed group rate" },
+    { id: "c3", name: "Food", icon: "food", mode: "fixed", rate: 0, fixed: 8200, useFoodRate: false, note: "All meals per itinerary (breakfast, lunch, dinner, tea)" },
+    { id: "c4", name: "Others", icon: "other", mode: "fixed", rate: 0, fixed: 1400, useFoodRate: false, note: "Misc / buffer spend" },
+    { id: "c5", name: "Resort", icon: "hotel", mode: "fixed", rate: 0, fixed: 9000, useFoodRate: false, note: "Bristir Gaan Eco Resort, 2 nights fixed group rate" },
   ],
   foodItems: [
     { id: "f1", name: "Nasta (Breakfast / Snacks)", amount: 200 },
@@ -134,28 +131,71 @@ const DEFAULT_DATA = {
   ],
   allocationRule: "contribution",
   itinerary: [
-    { id: "i1", day: 1, period: "Night", time: "22:00", title: "Depart Dhaka", location: "Gabtali / Kalabagan counter → Khagrachari or Dighinala", notes: "Overnight coach — book seats ahead, Sajek-bound buses fill up on weekends.", risk: "" },
-    { id: "i2", day: 1, period: "Early Morning", time: "06:30", title: "Arrive Khagrachari / Dighinala", location: "Dighinala Bus Stand", notes: "Freshen up and grab breakfast near the counter before the jeep stand.", risk: "" },
-    { id: "i3", day: 1, period: "Morning", time: "09:00", title: "Board Chander Gari, register at checkpoint", location: "Dighinala → Baghaihat Army Camp", notes: "Register the group at Baghaihat for security clearance before entering Sajek.", risk: "Only two army-escorted convoys run per day, roughly mid-morning and mid-afternoon. Miss the morning one and you wait hours — confirm the exact time locally the day before." },
-    { id: "i4", day: 1, period: "Morning", time: "11:00", title: "Convoy into Sajek", location: "Baghaihat → Ruilui Para", notes: "Winding hill road, roughly 1.5–3 hrs depending on start point.", risk: "" },
-    { id: "i5", day: 1, period: "Afternoon", time: "13:30", title: "Check in & lunch", location: "Resort, Ruilui Para", notes: "Drop bags, freshen up, then lunch at a local restaurant.", risk: "" },
-    { id: "i6", day: 1, period: "Afternoon", time: "15:30", title: "Explore Ruilui Para & Stone Garden", location: "Ruilui Para", notes: "Wander the main village, browse handmade tribal crafts.", risk: "" },
-    { id: "i7", day: 1, period: "Evening", time: "17:30", title: "Sunset at the Helipad", location: "Sajek Helipad", notes: "The easiest, most popular sunset spot — open ground, no trekking.", risk: "" },
-    { id: "i8", day: 1, period: "Night", time: "20:30", title: "Dinner — try bamboo chicken", location: "Local restaurant, Ruilui Para", notes: "Pre-order if you want bamboo chicken, it needs prep time.", risk: "" },
-    { id: "i9", day: 2, period: "Early Morning", time: "05:15", title: "Sunrise over the cloud sea", location: "Helipad or Konglak Hill", notes: "The whole reason to come — head up in the dark to catch the clouds turning gold.", risk: "Weather-dependent — heavy rain can hide the cloud sea entirely. Keep the morning loose." },
-    { id: "i10", day: 2, period: "Morning", time: "07:00", title: "Trek to Konglak Para", location: "Ruilui Para → Konglak Hill (~35–45 min walk)", notes: "Sajek's highest point — Lusai village, orange groves, views into India.", risk: "" },
-    { id: "i11", day: 2, period: "Morning", time: "09:00", title: "Breakfast", location: "Local restaurant, Ruilui Para", notes: "", risk: "" },
-    { id: "i12", day: 2, period: "Midday", time: "11:30", title: "Check out, catch return convoy", location: "Ruilui Para → Baghaihat", notes: "Pack up in time for the midday escorted convoy back.", risk: "Same convoy-timing risk as the way in — don't plan a tight bus connection in Dhaka." },
-    { id: "i13", day: 2, period: "Afternoon", time: "15:00", title: "Return to Khagrachari / Dighinala", location: "Baghaihat → Dighinala", notes: "Early dinner before the overnight bus.", risk: "" },
-    { id: "i14", day: 2, period: "Night", time: "21:30", title: "Overnight bus back to Dhaka", location: "Dighinala / Khagrachari → Dhaka", notes: "", risk: "" },
+    /* DAY 0 — Wednesday, 23 September */
+    { id: "i0a", day: 0, period: "Night", time: "20:30", title: "Meet up", location: "Meeting point", notes: "All 7 boys present. Check essential gear: main luggage, daypack, phones, power banks, wallet/cash, ID, water, light jacket, shoes, rain protection, basic first-aid. Keep shoes, phone and power bank accessible.", risk: "" },
+    { id: "i0b", day: 0, period: "Night", time: "22:00", title: "Depart Dhaka", location: "Dhaka → Khagrachari (overnight bus)", notes: "Mission tonight: SLEEP. Don't turn the bus into a midnight adda. Tomorrow you need to catch the 10 AM security squad.", risk: "" },
+
+    /* DAY 1 — Thursday, 24 September */
+    { id: "i1a", day: 1, period: "Early Morning", time: "06:00", title: "Arrive Khagrachari", location: "Khagrachari Bus Stand", notes: "Immediately: breakfast, freshen up, toilet, fill water, organize luggage.", risk: "" },
+    { id: "i1b", day: 1, period: "Morning", time: "07:30", title: "Prepare for 10 AM Sajek squad", location: "Khagrachari → Baghaihat Army Camp", notes: "Only priority: make the 10 AM Sajek squad. No Alutila, Richang, Hanging Bridge, random breakfast stop, or 'let's just go somewhere nearby' today.", risk: "Two daily escorted windows. Missing morning one means waiting hours. Confirm exact time locally." },
+    { id: "i1c", day: 1, period: "Morning", time: "09:00", title: "Meet reserved jeep", location: "Jeep stand", notes: "Confirm: 7 people, all luggage, driver's phone number, return arrangement, 10 AM squad, 26 Sept return squad.", risk: "" },
+    { id: "i1d", day: 1, period: "Morning", time: "10:00", title: "Khagrachari → Sajek (mountain journey)", location: "Baghaihat → Ruilui Para", notes: "This is part of the experience. Take road-trip photos, record clips, watch landscape, play music, enjoy the jeep ride. Don't make driver stop constantly.", risk: "Winding hill road, roughly 1.5–3 hrs depending on start point." },
+    { id: "i1e", day: 1, period: "Afternoon", time: "12:30", title: "Arrive Sajek", location: "Sajek Valley", notes: "Officially in Sajek. Accommodation: Bristir Gaan Eco Resort, Konglak Pahar.", risk: "" },
+    { id: "i1f", day: 1, period: "Afternoon", time: "13:00", title: "Check-in", location: "Bristir Gaan Eco Resort", notes: "Get rooms, put luggage down, freshen up.", risk: "" },
+    { id: "i1g", day: 1, period: "Afternoon", time: "13:30", title: "Lunch", location: "Resort or local restaurant", notes: "Have your planned lunch. Don't restaurant-hop. You have two nights and plenty of time.", risk: "" },
+    { id: "i1h", day: 1, period: "Afternoon", time: "14:15", title: "Rest", location: "Resort", notes: "Important. You've travelled Dhaka → Khagrachari → Sajek. Shower, lie down, recharge.", risk: "" },
+    { id: "i1i", day: 1, period: "Afternoon", time: "16:00", title: "Konglak Para walk", location: "Konglak Para", notes: "First proper Sajek exploration. Walk around your area: hill paths, local houses, small shops, local lifestyle. Don't rush to famous viewpoints.", risk: "" },
+    { id: "i1j", day: 1, period: "Evening", time: "17:00", title: "Konglak sunset", location: "Konglak Hill viewpoint", notes: "First BIG experience. Take one proper 7-person group photo, individual photos, group cinematic video, cloud photos, sunset photos. Then simply sit.", risk: "" },
+    { id: "i1k", day: 1, period: "Evening", time: "18:15", title: "Free time", location: "Resort", notes: "Tea, shower, music, talk. No schedule. This is intentional.", risk: "" },
+    { id: "i1l", day: 1, period: "Night", time: "19:30", title: "Dinner", location: "Resort / local restaurant", notes: "Eat together. If food arrangement allows, try bamboo chicken, hill vegetables, rice.", risk: "" },
+    { id: "i1m", day: 1, period: "Night", time: "21:00", title: "Sajek after dark", location: "Resort", notes: "Stargazing, cloud watching, guitar, singing, long-exposure photos, group adda. Special challenge: one 7-person night photo.", risk: "" },
+    { id: "i1n", day: 1, period: "Night", time: "23:30", title: "Sleep", location: "Resort", notes: "Tomorrow is main day.", risk: "" },
+
+    /* DAY 2 — Friday, 25 September */
+    { id: "i2a", day: 2, period: "Early Morning", time: "04:45", title: "Wake up", location: "Resort", notes: "Yes. Everyone will complain. Wake them anyway. 😂", risk: "" },
+    { id: "i2b", day: 2, period: "Early Morning", time: "05:00", title: "Konglak sunrise", location: "Konglak Hill", notes: "#1 priority of entire tour. Best-case: sunrise → sea of clouds → green hills. Stay 20–30 minutes after sunrise — light can be even more beautiful.", risk: "Weather-dependent — heavy rain can hide cloud sea. Keep morning loose." },
+    { id: "i2c", day: 2, period: "Morning", time: "06:30", title: "Breakfast", location: "Resort", notes: "Tea, breakfast, water.", risk: "" },
+    { id: "i2d", day: 2, period: "Morning", time: "08:00", title: "Ruilui Para", location: "Ruilui Para village", notes: "Explore cultural side of Sajek. Walk slowly: traditional houses, small shops, handicrafts, local life. If photographing people, ask first — especially children.", risk: "" },
+    { id: "i2e", day: 2, period: "Morning", time: "10:00", title: "Hidden / underrated Sajek viewpoint", location: "Ask driver / local guide", notes: "Tell driver: 'ভাই, এমন কোনো সুন্দর পাহাড়ি ভিউ বা পাড়া দেখান যেখানে সাধারণ tourist কম যায়, কিন্তু এখন যাওয়া safe.' Possible: Thonglang Hill, Dotong Pahar, lesser-known village viewpoints, quiet hill trails.", risk: "Access should be confirmed locally on the day." },
+    { id: "i2f", day: 2, period: "Midday", time: "11:30", title: "Local tea stop", location: "Small local tea stall", notes: "Not fancy resort. Tea, biscuit/snack. Sit 20–30 minutes. Cost: almost nothing. Experience: priceless.", risk: "" },
+    { id: "i2g", day: 2, period: "Midday", time: "12:00", title: "Lunch", location: "Resort", notes: "Back to resort.", risk: "" },
+    { id: "i2h", day: 2, period: "Afternoon", time: "13:00", title: "Sacred nap", location: "Resort", notes: "Not wasted time. You woke at 4:45 AM and walked. Everyone sleeps.", risk: "" },
+    { id: "i2i", day: 2, period: "Afternoon", time: "15:00", title: "Optional waterfall trek", location: "Komlok / Sikam Twaisa", notes: "Bonus experience. Make decision on 25 Sept, not months earlier. Ask driver/local guide: 'Is trail safe today?' If heavy rain, dangerous water, or extremely slippery — SKIP IT.", risk: "Waterfall trek can be dangerous after rain. Do not jump or imitate videos." },
+    { id: "i2j", day: 2, period: "Evening", time: "17:00", title: "Helipad sunset", location: "Sajek Helipad", notes: "Famous Sajek sunset. Day 1 → Konglak sunset, Day 2 → Helipad sunset. Perfect.", risk: "" },
+    { id: "i2k", day: 2, period: "Evening", time: "18:30", title: "Official group photoshoot", location: "Helipad / resort / jeep", notes: "One normal group photo, one funny, one cinematic, one candid, one sunset silhouette, one with jeep, one at resort. Done — don't spend 45 min taking 300 identical photos.", risk: "" },
+    { id: "i2l", day: 2, period: "Evening", time: "19:15", title: "Local shopping", location: "Ruilui Para market", notes: "Budget ৳200–300 each. Handmade bracelets, local handicrafts, small traditional items, souvenirs.", risk: "" },
+    { id: "i2m", day: 2, period: "Night", time: "20:00", title: "Final dinner", location: "Bristir Gaan / resort", notes: "Make tonight special. If resort can arrange: BBQ / Bamboo Chicken. Better than spending extra at several restaurants.", risk: "" },
+    { id: "i2n", day: 2, period: "Night", time: "21:00", title: "Final boys' night", location: "Resort", notes: "Guitar, songs, cards, stories, photos, stargazing, campfire if permitted. MUST DO: Each of 7 people records 10–15 sec 'My best moment of Sajek was...' Combine clips later into Sajek 2026 memory video.", risk: "" },
+    { id: "i2o", day: 2, period: "Night", time: "00:00", title: "Sleep", location: "Resort", notes: "Tomorrow is return journey.", risk: "" },
+
+    /* DAY 3 — Saturday, 26 September */
+    { id: "i3a", day: 3, period: "Early Morning", time: "06:30", title: "Final Konglak morning", location: "Konglak Pahar", notes: "No major trek. Tea, clouds, hills, final photos.", risk: "" },
+    { id: "i3b", day: 3, period: "Morning", time: "07:15", title: "Breakfast", location: "Resort", notes: "Eat properly.", risk: "" },
+    { id: "i3c", day: 3, period: "Morning", time: "08:00", title: "Pack", location: "Resort", notes: "Check: phone, charger, power bank, wallet, ID, shoes, clothes, souvenirs. Check under bed. Someone WILL forget something.", risk: "" },
+    { id: "i3d", day: 3, period: "Morning", time: "08:45", title: "Checkout", location: "Resort", notes: "Settle any outstanding amount.", risk: "" },
+    { id: "i3e", day: 3, period: "Morning", time: "09:00", title: "Leave for squad point", location: "Ruilui Para → Baghaihat", notes: "Jeep takes everyone toward designated departure area.", risk: "" },
+    { id: "i3f", day: 3, period: "Morning", time: "10:00", title: "Sajek → Khagrachari security squad", location: "Baghaihat Army Camp", notes: "Second major fixed time. Don't be late. Convoy system means departure is not flexible.", risk: "Same convoy-timing risk as the way in — don't plan a tight bus connection." },
+    { id: "i3g", day: 3, period: "Afternoon", time: "12:30", title: "Arrive Khagrachari", location: "Khagrachari", notes: "Now Khagrachari chapter begins. You intentionally skipped attractions on 24 Sept, so you're fresh.", risk: "" },
+    { id: "i3h", day: 3, period: "Afternoon", time: "13:00", title: "Lunch", location: "Khagrachari", notes: "Quick but proper. Don't spend 90 minutes eating. You still have three attractions.", risk: "" },
+    { id: "i3i", day: 3, period: "Afternoon", time: "13:45", title: "Alutila Cave", location: "Alutila Cave", notes: "Give one person flashlight. Walk together. Don't rush. Take group photo afterward. Cave is relatively short to traverse.", risk: "" },
+    { id: "i3j", day: 3, period: "Afternoon", time: "14:35", title: "Jhulonto Bridge", location: "Hanging Bridge", notes: "Walk across, take photos, enjoy surroundings. Don't spend an hour.", risk: "" },
+    { id: "i3k", day: 3, period: "Afternoon", time: "15:30", title: "Richang Jharna", location: "Richang Waterfall", notes: "Biggest Khagrachari nature experience. Take water, ORS, waterproof phone protection, good-grip shoes. Rocks can be very slippery after rain. Do NOT imitate waterfall-slide videos. Goal: experience → photos → return safely.", risk: "Slippery rocks, especially after rain. Avoid dangerous jumps." },
+    { id: "i3l", day: 3, period: "Evening", time: "17:00", title: "Return to Khagrachari", location: "Richang Jharna → Khagrachari town", notes: "Done. Main sightseeing checklist: ✅ Alutila Cave ✅ Jhulonto Bridge ✅ Richang Jharna.", risk: "" },
+    { id: "i3m", day: 3, period: "Evening", time: "18:00", title: "Dinner / early dinner", location: "Khagrachari", notes: "Eat before boarding Dhaka bus. Buffer for delays.", risk: "" },
+    { id: "i3n", day: 3, period: "Night", time: "19:30", title: "Khagrachari → Dhaka bus", location: "Khagrachari / Dighinala → Dhaka", notes: "Ideal target: 8:00–10:00 PM bus. Safety buffer for rain, traffic, waterfall delay, lunch delay, road conditions.", risk: "" },
+    { id: "i3o", day: 3, period: "Night", time: "23:30", title: "Arrive Dhaka", location: "Dhaka", notes: "Sleep. Trip officially completed. ❤️", risk: "" },
   ],
   spots: [
-    { id: "s1", name: "Konglak Hill (Konglak Para)", category: "Viewpoint", priority: "High", time: "~1.5–2 hrs round trip", cost: 0, status: "planned", notes: "Sajek's highest point (~1,800 ft). Best sunrise in the valley; gets crowded at golden hour." },
-    { id: "s2", name: "Sajek Helipad", category: "Viewpoint", priority: "High", time: "~45 min", cost: 0, status: "planned", notes: "Flat open ground — the easiest sunset/sunrise spot, no trekking needed." },
-    { id: "s3", name: "Ruilui Para", category: "Village", priority: "Medium", time: "~1–2 hrs", cost: 0, status: "planned", notes: "Main village — most resorts, restaurants, and handmade tribal crafts." },
-    { id: "s4", name: "Stone Garden", category: "Landmark", priority: "Medium", time: "~30–45 min", cost: 0, status: "planned", notes: "Landscaped rock garden a short walk from Ruilui Para." },
-    { id: "s5", name: "Kamalak Fountain (Padam Toisha Jharna)", category: "Nature", priority: "Low", time: "~3–4 hrs round trip", cost: 0, status: "planned", notes: "A longer trek to a waterfall — only if the group wants extra hiking." },
-    { id: "s6", name: "Bamboo chicken dinner", category: "Food", priority: "High", time: "~1 hr", cost: 600, status: "planned", notes: "Indigenous specialty — order ahead, it takes time to prepare." },
+    { id: "s1", name: "Konglak Hill (Konglak Para)", category: "Viewpoint", priority: "High", time: "Sunrise & sunset visits", cost: 0, status: "planned", notes: "Sajek's highest point (~1,800 ft). Best sunrise in the valley; gets crowded at golden hour. You are staying nearby, so no excuse to miss it." },
+    { id: "s2", name: "Sajek Helipad", category: "Viewpoint", priority: "High", time: "~45 min", cost: 0, status: "planned", notes: "Flat open ground — easiest sunset/sunrise spot, no trekking. Do it on Day 2." },
+    { id: "s3", name: "Ruilui Para", category: "Village", priority: "Medium", time: "~1–2 hrs", cost: 0, status: "planned", notes: "Main village — resorts, restaurants, handicrafts. Cultural walk on Day 2 morning." },
+    { id: "s4", name: "Bristir Gaan Eco Resort", category: "Stay", priority: "High", time: "2 nights", cost: 9000, status: "planned", notes: "Accommodation at Konglak Pahar. Base for all activities. BBQ/bamboo chicken can be arranged." },
+    { id: "s5", name: "Alutila Cave", category: "Landmark", priority: "High", time: "~45 min", cost: 0, status: "planned", notes: "Short cave walk, fun with flashlight. Visit on return day 26 Sept." },
+    { id: "s6", name: "Jhulonto Bridge", category: "Landmark", priority: "Medium", time: "~30–45 min", cost: 0, status: "planned", notes: "Hanging bridge, quick photo stop on return day." },
+    { id: "s7", name: "Richang Jharna", category: "Nature", priority: "High", time: "~1.5–2 hrs", cost: 0, status: "planned", notes: "Waterfall trek. Slippery after rain — take ORS, waterproof phone pouch, good grip shoes. Do NOT jump or slide." },
+    { id: "s8", name: "Hidden local viewpoint", category: "Viewpoint", priority: "Medium", time: "~1 hr", cost: 0, status: "planned", notes: "Ask driver/local guide for a quiet hill viewpoint. Possible: Thonglang Hill, Dotong Pahar, lesser-known trails." },
+    { id: "s9", name: "Komlok / Sikam Twaisa (Optional waterfall)", category: "Nature", priority: "Low", time: "~2–3 hrs", cost: 0, status: "planned", notes: "Optional Day 2 afternoon trek. Confirm safety with local guide. Skip if heavy rain or dangerous." },
+    { id: "s10", name: "Bamboo chicken dinner", category: "Food", priority: "High", time: "~1 hr", cost: 600, status: "planned", notes: "Indigenous specialty — order ahead, it takes time to prepare. Have it at resort dinner." },
   ],
 };
 
@@ -306,7 +346,6 @@ function useSystemCredentials() {
               adminMembers: val.adminMembers || [],
             });
           } else if (firstLoad.current) {
-            // first time: seed defaults
             dbSet(credRef, DEFAULT_CREDENTIALS);
             setCredsLocal(DEFAULT_CREDENTIALS);
           }
@@ -657,7 +696,7 @@ function LoadingScreen() {
   );
 }
 
-/* ============================== ADMIN SETTINGS (now uses Firebase credentials) ============================== */
+/* ============================== ADMIN SETTINGS (Firebase credentials) ============================== */
 
 function AdminSettings({
   adminPw, setAdminPw,
@@ -723,7 +762,7 @@ function AdminSettings({
       <Card className="p-4">
         <SectionHeading eyebrow="Admin only" title="Manage credentials (synced globally)" />
         <p className="text-sm text-stone-500 mb-4">
-          These settings are now stored in Firebase and shared across all devices. Changes appear instantly for everyone.
+          These settings are stored in Firebase and shared across all devices. Changes appear instantly for everyone.
         </p>
 
         <div className="space-y-4">
@@ -1174,7 +1213,7 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
   const updateParticipant = (id, patch) =>
     setData((d) => ({ ...d, participants: d.participants.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
   const addParticipant = () =>
-    setData((d) => ({ ...d, participants: [...d.participants, { id: uid("p"), name: "New Traveler", contribution: 0, avatar: "" }] }));
+    setData((d) => ({ ...d, participants: [...d.participants, { id: uid("p"), name: "New Traveler", contribution: 6200, avatar: "" }] }));
   const removeParticipant = (id, name) =>
     confirmAction({
       title: "Remove traveler?",
@@ -1537,7 +1576,7 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
                             <MapPin size={13} color="#a8a29e" />
                             <TextInput value={item.location} onChange={(v) => updateItem(item.id, { location: v })} placeholder="Location" disabled={readOnly} />
                           </div>
-                          <TextArea value={item.notes} onChange={(v) => updateItem(item.id, { notes: v })} placeholder="Notes" rows={1} disabled={readOnly} />
+                          <TextArea value={item.notes} onChange={(v) => updateItem(item.id, { notes: v })} placeholder="Notes" rows={2} disabled={readOnly} />
                           <div className="flex items-start gap-1.5">
                             <AlertTriangle size={13} color={item.risk ? BRAND.ember : "#a8a29e"} className="mt-1.5 shrink-0" />
                             <TextArea value={item.risk} onChange={(v) => updateItem(item.id, { risk: v })} placeholder="Backup plan / risk (optional)" rows={1} disabled={readOnly} />
@@ -1571,7 +1610,7 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
 
 /* ============================== SPOTS ============================== */
 
-const SPOT_CATEGORIES = ["Viewpoint", "Village", "Nature", "Landmark", "Food"];
+const SPOT_CATEGORIES = ["Viewpoint", "Village", "Nature", "Landmark", "Food", "Stay"];
 const PRIORITIES = ["High", "Medium", "Low"];
 
 function Spots({ data, setData, confirmAction, readOnly }) {
@@ -1953,7 +1992,7 @@ const TABS = [
 ];
 
 export default function App() {
-  // ----- credentials from Firebase (replaces localStorage) -----
+  // ----- credentials from Firebase -----
   const {
     adminPw, setAdminPw,
     memberCreds, setMemberCreds,
@@ -2170,4 +2209,4 @@ export default function App() {
       <ConfirmDialog state={confirmState} onClose={closeConfirm} />
     </div>
   );
-}
+     }
