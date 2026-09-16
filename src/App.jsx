@@ -3,10 +3,11 @@ import {
   Mountain, Cloud, Sun, Moon, Sunrise, Sunset, Bus, Car, UtensilsCrossed,
   BedDouble, Package, Users, Wallet, PiggyBank, TrendingUp, TrendingDown,
   Plus, Trash2, Upload, Download, FileSpreadsheet, MapPin, Clock,
-  AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, X, Info, Star,
-  LayoutDashboard, CalendarDays, Compass, Loader2, FileJson, Home, Leaf,
-  RotateCcw, ArrowRight, Link2, Check, Settings, UserCircle, Camera,
-  Receipt, Image as ImageIcon, MessageSquare, FileText,
+  AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
+  X, Info, Star, LayoutDashboard, CalendarDays, Compass, Loader2, FileJson,
+  Home, Leaf, RotateCcw, ArrowRight, Link2, Check, Settings, UserCircle,
+  Camera, Receipt, Image as ImageIcon, ZoomIn, Edit3, Quote, Sparkles,
+  History, Lightbulb, Award, MessageSquare, FileText,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 import * as XLSX from "xlsx";
@@ -54,11 +55,13 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible{outline:2px soli
 .rise-in{animation:riseIn .35s ease-out both;}
 @keyframes pulseLight{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
 .pulse-on-change{animation:pulseLight .4s ease-out;}
+@keyframes subtleZoom{from{transform:scale(1)}to{transform:scale(1.06)}}
 .cloud-drift-1{animation:cloudDrift1 32s ease-in-out infinite alternate;}
 .cloud-drift-2{animation:cloudDrift2 42s ease-in-out infinite alternate;}
 .mist-rise{animation:mistRise 18s ease-in-out infinite;}
+.hero-zoom{animation:subtleZoom 20s ease-in-out infinite alternate;}
 @media (prefers-reduced-motion: reduce){
-  .rise-in{animation:none;} .pulse-on-change{animation:none;}
+  .rise-in,.pulse-on-change,.hero-zoom{animation:none;}
   .cloud-drift-1,.cloud-drift-2,.mist-rise{animation:none;}
 }
 .no-scrollbar::-webkit-scrollbar{display:none;}
@@ -66,6 +69,8 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible{outline:2px soli
 .tab-scroll{scroll-snap-type:x proximity;}
 .transition-width{transition:width .4s cubic-bezier(.4,0,.2,1);}
 select option{background:${BRAND.card}; color:${BRAND.text};}
+.glow-accent{box-shadow:0 0 0 1px ${BRAND.accent}33, 0 0 24px ${BRAND.accent}22;}
+.line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 `;
 
 const PIE_COLORS = ["#F97316","#3B82F6","#10B981","#8B5CF6","#F59E0B","#EC4899","#06B6D4"];
@@ -73,6 +78,8 @@ const CATEGORY_ICONS = { bus: Bus, car: Car, food: UtensilsCrossed, hotel: BedDo
 const PERIOD_ICONS = { Night: Moon, "Early Morning": Sunrise, Morning: Sunrise, Midday: Sun, Afternoon: Sun, Evening: Sunset };
 const SPOT_ICONS = { Viewpoint: Mountain, Village: Home, Nature: Leaf, Landmark: MapPin, Food: UtensilsCrossed };
 const PRIORITY_TONE = { High: BRAND.danger, Medium: BRAND.warning, Low: BRAND.info };
+const SPOT_CATEGORIES = ["Viewpoint", "Village", "Nature", "Landmark", "Food"];
+const PRIORITIES = ["High", "Medium", "Low"];
 
 /* ============================== UTIL ============================== */
 
@@ -92,6 +99,30 @@ function avatarColor(name) {
   const s = String(name || ""); let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return palette[h % palette.length];
+}
+function readTimeOf(text) {
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+function makeEmptySpot(id) {
+  return {
+    id: id || uid("s"),
+    name: "New spot",
+    category: "Viewpoint",
+    priority: "Medium",
+    time: "",
+    cost: 0,
+    status: "planned",
+    notes: "",
+    image: "",
+    bestTime: "",
+    description: "",
+    specialty: "",
+    originStory: "",
+    history: "",
+    tips: "",
+    gallery: [],
+  };
 }
 
 /* ============================== DEFAULT DATA ============================== */
@@ -132,9 +163,12 @@ const DEFAULT_DATA = {
     { id: "i6", day: 2, period: "Early Morning", time: "05:15", title: "Sunrise over the cloud sea", location: "Helipad or Konglak Hill", notes: "", risk: "Weather-dependent.", image: "" },
   ],
   spots: [
-    { id: "s1", name: "Konglak Hill (Konglak Para)", category: "Viewpoint", priority: "High", time: "~1.5–2 hrs", cost: 0, status: "planned", notes: "Highest point in the valley.", image: "" },
-    { id: "s2", name: "Sajek Helipad", category: "Viewpoint", priority: "High", time: "~45 min", cost: 0, status: "planned", notes: "Easiest sunset spot.", image: "" },
-    { id: "s3", name: "Ruilui Para", category: "Village", priority: "Medium", time: "~1–2 hrs", cost: 0, status: "planned", notes: "Main village.", image: "" },
+    { id: "s1", name: "Konglak Hill (Konglak PARA)", category: "Viewpoint", priority: "High", time: "~1.5–2 hrs round trip", cost: 0, status: "planned", image: "", notes: "Sajek's highest point (~1,800 ft). Best sunrise in the valley.", bestTime: "Sunrise", description: "Stand at Sajek's very zenith — around 1,800 feet above sea level. A panoramic wonderland where time stands still. Experience the true magic of a Golden Hour sunrise, when the valley below is an endless sea of cotton-wool clouds.", specialty: "The single best spot in the entire valley to witness the famous 'sea of clouds' at dawn. On a clear morning, the sunrise here is the reason people travel to Sajek at all.", originStory: "The hill takes its name from the Konglak Para — a small indigenous village perched on the slope of the mountain. For generations, the people of this PARA have lived above the cloud line.", history: "The PARA community here has inhabited the Sajek range for centuries, long before the region became a tourist destination.", tips: "Wake up by 4:45 AM — the whole point is to be up before first light.\nWear warm clothes: it is significantly colder up here than in Ruilui Para.\nBring a flashlight for the walk up in the dark.\nStay 20–30 minutes after sunrise.", gallery: [] },
+    { id: "s2", name: "Sajek Helipad", category: "Viewpoint", priority: "High", time: "~45 min", cost: 0, status: "planned", image: "", notes: "Flat open ground — the easiest sunset/sunrise spot.", bestTime: "Sunset", description: "Your grand sunset viewing platform. Just step from the helipad for an expansive, easy view across the vastness. Watch as the sun dips below the infinite sea of clouds, painting the sky in fiery oranges and deep purples.", specialty: "The flattest, most accessible viewpoint in Sajek — no trekking required.", originStory: "The helipad was originally built as a landing pad for helicopters serving the hill region.", history: "Built during the period when Sajek was being developed as a strategic hill area.", tips: "Arrive 30–45 minutes before sunset to get a good spot.\nBring a light jacket.\nThe flat ground is safe for young children.\nPhotograph both east and west.", gallery: [] },
+    { id: "s3", name: "Ruilui Para", category: "Village", priority: "Medium", time: "~1–2 hrs", cost: 0, status: "planned", image: "", notes: "Main village — resorts, restaurants, handmade tribal crafts.", bestTime: "Morning", description: "The cultural heart of Sajek — a living village where the PARA community continues its traditions alongside the travellers who come to visit.", specialty: "Genuine handmade crafts, traditional stilt houses, and a warm community.", originStory: "Ruilui is one of the oldest PARA settlements in the Sajek range.", history: "The PARA people have lived on these ridges for many generations.", tips: "Ask before photographing people.\nBuy directly from the artisans.\nTry the local tea.", gallery: [] },
+    { id: "s4", name: "Stone Garden", category: "Landmark", priority: "Medium", time: "~30–45 min", cost: 0, status: "planned", image: "", notes: "Landscaped rock garden a short walk from Ruilui Para.", bestTime: "Afternoon", description: "A quietly beautiful, landscaped rock garden perched along the ridge.", specialty: "A sculpted, deliberate garden that contrasts with the wild hills around it.", originStory: "", history: "", tips: "Great for a slow afternoon.\nWear shoes with grip.", gallery: [] },
+    { id: "s5", name: "Kamalak Fountain (Padam Toisha Jharna)", category: "Nature", priority: "Low", time: "~3–4 hrs round trip", cost: 0, status: "planned", image: "", notes: "A longer trek to a waterfall — only if the group wants extra hiking.", bestTime: "Monsoon", description: "A serious hillside trek to a waterfall deep in the forest.", specialty: "One of the few waterfall treks accessible from Sajek.", originStory: "", history: "", tips: "Only attempt with a local guide.\nSkip it if there has been heavy rain.", gallery: [] },
+    { id: "s6", name: "Bamboo Chicken Dinner", category: "Food", priority: "High", time: "~1 hr", cost: 600, status: "planned", image: "", notes: "Indigenous specialty — order ahead, it takes time to prepare.", bestTime: "Dinner", description: "The signature dish of the Sajek hills — chicken slow-cooked inside a bamboo tube over an open fire.", specialty: "Not just a meal — a cooking method inherited from the local PARA community.", originStory: "Cooked this way long before restaurants arrived in the valley.", history: "Bamboo cooking is a technique common across many hill communities in Southeast Asia.", tips: "Order 1–2 hours in advance.\nConfirm the spice level.\nBest eaten hot.", gallery: [] },
   ],
 };
 
@@ -357,11 +391,12 @@ function Ridgeline({ height = 190 }) {
   );
 }
 
-function Card({ children, className = "", style = {}, hover = false }) {
+function Card({ children, className = "", style = {}, hover = false, onClick }) {
   const [isHover, setIsHover] = useState(false);
   return (
     <div
       className={"rise-in rounded-2xl border " + className}
+      onClick={onClick}
       onMouseEnter={hover ? () => setIsHover(true) : undefined}
       onMouseLeave={hover ? () => setIsHover(false) : undefined}
       style={{
@@ -391,11 +426,7 @@ function PulseOnChange({ value, children }) {
 }
 
 function StatCard({ icon: Icon, label, value, sub, tone = "accent", isCurrency = true }) {
-  const colorMap = {
-    accent: BRAND.accent, success: BRAND.success, danger: BRAND.danger,
-    info: BRAND.info, warning: BRAND.warning, purple: BRAND.dusk,
-    pine: BRAND.pine, bamboo: BRAND.bamboo, cloud: BRAND.cloud, dusk: BRAND.dusk, ember: BRAND.ember,
-  };
+  const colorMap = { accent: BRAND.accent, success: BRAND.success, danger: BRAND.danger, info: BRAND.info, warning: BRAND.warning, purple: BRAND.dusk, pine: BRAND.pine, bamboo: BRAND.bamboo, cloud: BRAND.cloud, dusk: BRAND.dusk, ember: BRAND.ember };
   const color = colorMap[tone] || BRAND.accent;
   return (
     <Card className="p-3.5 sm:p-4" hover>
@@ -431,7 +462,7 @@ function Segmented({ options, value, onChange, small = false, disabled = false }
 }
 
 function IconBtn({ icon: Icon, onClick, label, tone = "stone", size = 16, disabled = false }) {
-  const toneMap = { stone: BRAND.textMuted, ember: BRAND.danger, danger: BRAND.danger, pine: BRAND.accent, accent: BRAND.accent };
+  const toneMap = { stone: BRAND.textMuted, ember: BRAND.danger, danger: BRAND.danger, pine: BRAND.accent, accent: BRAND.accent, success: BRAND.success };
   const color = disabled ? BRAND.textDim : (toneMap[tone] || toneMap.stone);
   return (
     <button onClick={disabled ? undefined : onClick} aria-label={label} title={label} disabled={disabled}
@@ -508,7 +539,7 @@ function SectionHeading({ eyebrow, title, action }) {
 function ConfirmDialog({ state, onClose }) {
   if (!state || !state.open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div className="rise-in w-full max-w-sm rounded-2xl p-5 border" style={{ background: BRAND.cardElevated, borderColor: BRAND.borderLight, boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3">
           <div className="mt-0.5 rounded-full p-2" style={{ background: BRAND.danger + "22" }}><AlertTriangle size={18} color={BRAND.danger} /></div>
@@ -533,7 +564,7 @@ function PaymentDialog({ open, person, onClose, onSave }) {
   useEffect(() => { if (open) { setAmount(""); setNote(""); setDate(new Date().toISOString().slice(0, 10)); } }, [open]);
   if (!open || !person) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div className="rise-in w-full max-w-md rounded-2xl p-5 border" style={{ background: BRAND.cardElevated, borderColor: BRAND.borderLight, boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
@@ -553,7 +584,7 @@ function PaymentDialog({ open, person, onClose, onSave }) {
           </div>
           <div>
             <label className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Note (optional)</label>
-            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Cash, bKash, advance" className="field w-full rounded-lg px-3 py-2.5 text-sm border mt-1.5" style={{ background: BRAND.bgElevated, color: BRAND.text, borderColor: BRAND.border }} />
+            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Cash, bKash" className="field w-full rounded-lg px-3 py-2.5 text-sm border mt-1.5" style={{ background: BRAND.bgElevated, color: BRAND.text, borderColor: BRAND.border }} />
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">
@@ -578,7 +609,7 @@ function PaymentDialog({ open, person, onClose, onSave }) {
   );
 }
 
-function RingProgress({ value, max, size = 60, stroke = 6, color = BRAND.accent, label }) {
+function RingProgress({ value, max, size = 60, stroke = 6, color = BRAND.accent }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -589,9 +620,8 @@ function RingProgress({ value, max, size = 60, stroke = 6, color = BRAND.accent,
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={BRAND.border} strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} style={{ transition: "stroke-dashoffset .5s ease" }} />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <div className="absolute inset-0 flex items-center justify-center">
         <span className="font-num text-xs font-bold tabular-nums" style={{ color: BRAND.text }}>{Math.round(pct)}%</span>
-        {label && <span className="text-[8px] uppercase tracking-wider" style={{ color: BRAND.textDim }}>{label}</span>}
       </div>
     </div>
   );
@@ -603,6 +633,51 @@ function Avatar({ name, src, size = 32 }) {
     <div className="rounded-full overflow-hidden shrink-0 flex items-center justify-center font-bold"
       style={{ width: size, height: size, background: src && !err ? "transparent" : avatarColor(name), color: "#fff", fontSize: size * 0.36 }}>
       {src && !err ? <img src={src} alt={name} className="w-full h-full object-cover" onError={() => setErr(true)} /> : initials(name)}
+    </div>
+  );
+}
+
+function Reveal({ children, delay = 0, className = "" }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!ref.current) return;
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.05 });
+    obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={className}
+      style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(20px)", transition: `opacity .65s cubic-bezier(.4,0,.2,1) ${delay}ms, transform .65s cubic-bezier(.4,0,.2,1) ${delay}ms` }}>
+      {children}
+    </div>
+  );
+}
+
+function Lightbox({ images, index, onClose, onPrev, onNext }) {
+  useEffect(() => {
+    if (index === null) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") onPrev();
+      else if (e.key === "ArrowRight") onNext();
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, [index, onClose, onPrev, onNext]);
+  if (index === null || !images || !images[index]) return null;
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.94)", backdropFilter: "blur(8px)" }} onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 rounded-full p-2 bg-white/10 hover:bg-white/20 transition" aria-label="Close"><X size={20} color="#fff" /></button>
+      {images.length > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); onPrev(); }} className="absolute left-2 sm:left-6 rounded-full p-2 sm:p-3 bg-white/10 hover:bg-white/20 transition" aria-label="Previous"><ChevronLeft size={22} color="#fff" /></button>
+          <button onClick={(e) => { e.stopPropagation(); onNext(); }} className="absolute right-2 sm:right-6 rounded-full p-2 sm:p-3 bg-white/10 hover:bg-white/20 transition" aria-label="Next"><ChevronRight size={22} color="#fff" /></button>
+        </>
+      )}
+      <img src={images[index]} alt="" className="max-w-[92vw] max-h-[88vh] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)" }}>{index + 1} / {images.length}</div>
     </div>
   );
 }
@@ -631,9 +706,7 @@ function AdminSettings({ adminPw, setAdminPw, memberCreds, setMemberCreds, admin
 
   useEffect(() => {
     const updated = { ...localCreds };
-    participants.forEach((p) => {
-      if (!updated[p.id]) updated[p.id] = { username: p.name.toLowerCase().replace(/\s+/g, ""), password: "pass1234" };
-    });
+    participants.forEach((p) => { if (!updated[p.id]) updated[p.id] = { username: p.name.toLowerCase().replace(/\s+/g, ""), password: "pass1234" }; });
     setLocalCreds(updated);
     // eslint-disable-next-line
   }, [participants]);
@@ -642,14 +715,13 @@ function AdminSettings({ adminPw, setAdminPw, memberCreds, setMemberCreds, admin
     setAdminPw(localAdminPw);
     setMemberCreds({ ...localCreds });
     setAdminMembers([...localAdminIds]);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaved(true); setTimeout(() => setSaved(false), 2000);
   };
 
   const handleReset = () => {
     confirmAction({
       title: "Reset all credentials?",
-      message: "Admin password, all member usernames, passwords, and admin statuses will be reset to defaults.",
+      message: "Admin password, all member usernames, passwords, and admin statuses will be reset.",
       confirmLabel: "Reset",
       onConfirm: () => {
         setAdminPw("admin2026"); setLocalAdminPw("admin2026");
@@ -676,13 +748,7 @@ function AdminSettings({ adminPw, setAdminPw, memberCreds, setMemberCreds, admin
             <label className="text-[10px] font-bold uppercase tracking-[0.15em] mb-2 block" style={{ color: BRAND.textDim }}>Member Credentials & Admin Access</label>
             <div className="overflow-x-auto rounded-xl border" style={{ borderColor: BRAND.border }}>
               <table className="w-full text-xs border-collapse" style={{ minWidth: 520 }}>
-                <thead>
-                  <tr style={{ background: BRAND.bgElevated }}>
-                    {["Traveler", "Username", "Password", "Admin?"].map((h) => (
-                      <th key={h} className="text-left px-3 py-2 font-bold uppercase tracking-[0.1em] text-[10px]" style={{ color: BRAND.textDim }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
+                <thead><tr style={{ background: BRAND.bgElevated }}>{["Traveler", "Username", "Password", "Admin?"].map((h) => (<th key={h} className="text-left px-3 py-2 font-bold uppercase tracking-[0.1em] text-[10px]" style={{ color: BRAND.textDim }}>{h}</th>))}</tr></thead>
                 <tbody>
                   {participants.map((p) => {
                     const cred = localCreds[p.id] || { username: "", password: "" };
@@ -690,8 +756,8 @@ function AdminSettings({ adminPw, setAdminPw, memberCreds, setMemberCreds, admin
                     return (
                       <tr key={p.id} className="border-t" style={{ borderColor: BRAND.border }}>
                         <td className="px-3 py-2 whitespace-nowrap" style={{ color: BRAND.text }}>{p.name}</td>
-                        <td className="px-3 py-2"><input type="text" value={cred.username} onChange={(e) => setLocalCreds((prev) => ({ ...prev, [p.id]: { ...prev[p.id], username: e.target.value } }))} className="w-full rounded bg-transparent px-1.5 py-1 text-xs border" style={{ color: BRAND.text, borderColor: BRAND.border, background: BRAND.bgElevated }} placeholder="username" /></td>
-                        <td className="px-3 py-2"><input type="text" value={cred.password} onChange={(e) => setLocalCreds((prev) => ({ ...prev, [p.id]: { ...prev[p.id], password: e.target.value } }))} className="w-full rounded bg-transparent px-1.5 py-1 text-xs border" style={{ color: BRAND.text, borderColor: BRAND.border, background: BRAND.bgElevated }} placeholder="password" /></td>
+                        <td className="px-3 py-2"><input type="text" value={cred.username} onChange={(e) => setLocalCreds((prev) => ({ ...prev, [p.id]: { ...prev[p.id], username: e.target.value } }))} className="w-full rounded bg-transparent px-1.5 py-1 text-xs border" style={{ color: BRAND.text, borderColor: BRAND.border, background: BRAND.bgElevated }} /></td>
+                        <td className="px-3 py-2"><input type="text" value={cred.password} onChange={(e) => setLocalCreds((prev) => ({ ...prev, [p.id]: { ...prev[p.id], password: e.target.value } }))} className="w-full rounded bg-transparent px-1.5 py-1 text-xs border" style={{ color: BRAND.text, borderColor: BRAND.border, background: BRAND.bgElevated }} /></td>
                         <td className="px-3 py-2 text-center"><input type="checkbox" checked={isAdmin} onChange={() => toggleAdmin(p.id)} className="h-4 w-4 cursor-pointer" style={{ accentColor: BRAND.accent }} /></td>
                       </tr>
                     );
@@ -706,31 +772,19 @@ function AdminSettings({ adminPw, setAdminPw, memberCreds, setMemberCreds, admin
           </div>
         </div>
       </Card>
-      <Card className="p-4">
-        <SectionHeading eyebrow="Info" title="How multi‑admin works" />
-        <ul className="list-disc list-inside text-sm space-y-1" style={{ color: BRAND.textMuted }}>
-          <li>Tick the "Admin?" box next to a traveler to grant them full editing access.</li>
-          <li>Promoted admins can change budgets, itineraries, spots, and manage credentials.</li>
-          <li>The main admin password ("admin") always works and is always an admin.</li>
-          <li>Changes are saved to Firebase and sync across all devices immediately.</li>
-        </ul>
-      </Card>
     </div>
   );
 }
 
-/* ============================== MEMBER PROFILE (NEW LAYOUT) ============================== */
+/* ============================== MEMBER PROFILE ============================== */
 
 function MemberProfile({ memberId, data, totals }) {
   const person = data.participants.find((p) => p.id === memberId);
   if (!person) return <EmptyState icon={UserCircle} title="Profile not found" message="Your traveler profile may have been removed." />;
-
   const share = personTotalShare(person, totals, data);
   const paid = num(Number(person.paid));
   const remaining = num(Number(person.contribution)) - paid;
   const balance = num(Number(person.contribution)) - share;
-  const progressPct = num(Number(person.contribution)) > 0 ? Math.min(100, (paid / num(Number(person.contribution))) * 100) : 0;
-
   const [nickname, setNickname] = useState(person.name);
   const [avatar, setAvatar] = useState(person.avatar || "");
   const [avatarPreview, setAvatarPreview] = useState(person.avatar || null);
@@ -738,11 +792,7 @@ function MemberProfile({ memberId, data, totals }) {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
-  useEffect(() => {
-    setNickname(person.name);
-    setAvatar(person.avatar || "");
-    setAvatarPreview(person.avatar || "");
-  }, [person.id]);
+  useEffect(() => { setNickname(person.name); setAvatar(person.avatar || ""); setAvatarPreview(person.avatar || ""); }, [person.id]);
 
   const handleSaveProfile = async () => {
     setSaving(true); setSaveMsg("");
@@ -750,10 +800,8 @@ function MemberProfile({ memberId, data, totals }) {
       const idx = data.participants.findIndex((p) => p.id === memberId);
       if (idx === -1) return;
       await dbSet(ref(db, TRIP_PATH + "/participants/" + idx), { ...data.participants[idx], name: nickname, avatar });
-      setSaveMsg("Saved ✓");
-      setTimeout(() => setSaveMsg(""), 2000);
-    } catch { setSaveMsg("Error"); }
-    finally { setSaving(false); }
+      setSaveMsg("Saved ✓"); setTimeout(() => setSaveMsg(""), 2000);
+    } catch { setSaveMsg("Error"); } finally { setSaving(false); }
   };
 
   const handleAvatarFile = (e) => {
@@ -766,214 +814,96 @@ function MemberProfile({ memberId, data, totals }) {
   const sortedPayments = [...(person.payments || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
   const pieData = totals.catTotals.filter((c) => c.total > 0);
   const nextItems = data.itinerary.slice(0, 2);
-
-  // Info badges for the profile card
-  const badges = [
-    { label: "Role", value: "Traveler" },
-    { label: "Status", value: remaining <= 0 ? "Fully Paid" : paid > 0 ? "Partial" : "Pending" },
-    { label: "Contribution", value: fmt(person.contribution) },
-    { label: "Paid", value: fmt(paid) },
-    { label: "Remaining", value: fmt(remaining) },
-    { label: "Payments", value: String(sortedPayments.length) },
-  ];
-
-  // Extract Bengali title from tagline if present
   const taglineParts = String(data.meta.tagline || "").split("—");
   const bengaliTitle = (taglineParts[0] || "").trim();
   const englishSubtitle = (taglineParts[1] || taglineParts[0] || "").trim();
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      {/* ================= LEFT COLUMN ================= */}
       <div className="lg:col-span-1 space-y-4">
-
-        {/* Profile card */}
         <Card className="p-5">
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
               <div className="rounded-full p-[2px]" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>
-                <div className="rounded-full p-[2px]" style={{ background: BRAND.card }}>
-                  <Avatar name={nickname} src={avatarPreview} size={80} />
-                </div>
+                <div className="rounded-full p-[2px]" style={{ background: BRAND.card }}><Avatar name={nickname} src={avatarPreview} size={80} /></div>
               </div>
-              <button onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 rounded-full p-1.5 shadow-lg transition-transform hover:scale-110"
-                style={{ background: BRAND.cardElevated, border: `2px solid ${BRAND.card}` }}>
-                <Camera size={11} color={BRAND.accent} />
-              </button>
+              <button onClick={() => fileInputRef.current?.click()} className="absolute -bottom-1 -right-1 rounded-full p-1.5 shadow-lg transition-transform hover:scale-110" style={{ background: BRAND.cardElevated, border: `2px solid ${BRAND.card}` }}><Camera size={11} color={BRAND.accent} /></button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
             </div>
             <div className="min-w-0 flex-1">
-              <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)}
-                className="font-display text-2xl font-bold bg-transparent outline-none w-full truncate"
-                style={{ color: BRAND.text }} />
-              <p className="text-xs mt-1 truncate" style={{ color: BRAND.textMuted }}>
-                Traveler · Sajek Valley Trip
-              </p>
+              <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} className="font-display text-2xl font-bold bg-transparent outline-none w-full truncate" style={{ color: BRAND.text }} />
+              <p className="text-xs mt-1 truncate" style={{ color: BRAND.textMuted }}>Traveler · Sajek Valley Trip</p>
             </div>
           </div>
-
-          {/* Progress ring + label */}
           <div className="mt-4 flex items-center gap-3">
             <RingProgress value={paid} max={num(Number(person.contribution)) || 1} size={54} stroke={5} color={BRAND.accent} />
             <div className="flex-1 min-w-0">
               <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>Trip Completion</div>
-              <div className="text-sm font-bold" style={{ color: BRAND.text }}>
-                {Math.round(progressPct)}% · {remaining <= 0 ? "Paid" : "In Progress"}
-              </div>
+              <div className="text-sm font-bold" style={{ color: BRAND.text }}>{Math.round(num(Number(person.contribution)) > 0 ? (paid / num(Number(person.contribution))) * 100 : 0)}% · {remaining <= 0 ? "Paid" : "In Progress"}</div>
             </div>
           </div>
-
-          {/* Save row */}
           <div className="mt-4 flex flex-col gap-2">
-            <input type="text" value={avatar || ""} onChange={(e) => { setAvatar(e.target.value); setAvatarPreview(e.target.value); }}
-              placeholder="Paste image URL" className="field w-full rounded-lg px-3 py-2 text-xs border"
-              style={{ background: BRAND.bgElevated, color: BRAND.text, borderColor: BRAND.border }} />
-            <button onClick={handleSaveProfile} disabled={saving}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 w-full"
-              style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>
-              {saving ? "Saving…" : saveMsg || "Save profile"}
-            </button>
+            <input type="text" value={avatar || ""} onChange={(e) => { setAvatar(e.target.value); setAvatarPreview(e.target.value); }} placeholder="Paste image URL" className="field w-full rounded-lg px-3 py-2 text-xs border" style={{ background: BRAND.bgElevated, color: BRAND.text, borderColor: BRAND.border }} />
+            <button onClick={handleSaveProfile} disabled={saving} className="rounded-xl px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 w-full" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>{saving ? "Saving…" : saveMsg || "Save profile"}</button>
           </div>
         </Card>
-
-        {/* Badges + Activity Feed */}
         <Card className="p-4">
           <div className="grid grid-cols-3 gap-x-3 gap-y-3">
-            {badges.map((b) => (
-              <div key={b.label} className="min-w-0">
-                <div className="text-[9px] font-bold uppercase tracking-[0.12em] truncate" style={{ color: BRAND.textDim }}>{b.label}</div>
-                <div className="text-xs font-bold mt-0.5 truncate" style={{ color: BRAND.text }}>{b.value}</div>
+            {[["Role", "Traveler"], ["Status", remaining <= 0 ? "Fully Paid" : paid > 0 ? "Partial" : "Pending"], ["Contribution", fmt(person.contribution)], ["Paid", fmt(paid)], ["Remaining", fmt(remaining)], ["Payments", String(sortedPayments.length)]].map(([l, v]) => (
+              <div key={l} className="min-w-0">
+                <div className="text-[9px] font-bold uppercase tracking-[0.12em] truncate" style={{ color: BRAND.textDim }}>{l}</div>
+                <div className="text-xs font-bold mt-0.5 truncate" style={{ color: BRAND.text }}>{v}</div>
               </div>
             ))}
           </div>
-
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: BRAND.border }}>
-            <div className="flex items-center gap-1.5 mb-2">
-              <MessageSquare size={12} color={BRAND.accent} />
-              <span className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Activity Feed</span>
-            </div>
-            {sortedPayments.length === 0 ? (
-              <p className="text-xs" style={{ color: BRAND.textDim }}>No activity yet.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {sortedPayments.slice(0, 4).map((pay) => (
-                  <li key={pay.id} className="flex items-start gap-2 text-xs" style={{ color: BRAND.textMuted }}>
-                    <span className="mt-1.5 h-1 w-1 rounded-full shrink-0" style={{ background: BRAND.accent }} />
-                    <span className="min-w-0 truncate">
-                      Paid {fmt(pay.amount)}{pay.note ? ` — ${pay.note}` : ""}
-                      <span className="ml-1" style={{ color: BRAND.textDim }}>({pay.date || "—"})</span>
-                    </span>
-                  </li>
-                ))}
-                {sortedPayments.length === 0 && (
-                  <li className="text-xs" style={{ color: BRAND.textDim }}>No payments recorded yet.</li>
-                )}
-              </ul>
-            )}
-          </div>
         </Card>
-
-        {/* Destination Snapshot */}
         <Card className="overflow-hidden">
-          <div className="relative h-48" style={{
-            background: `linear-gradient(180deg, #0A0D20 0%, #1A1435 45%, #7C2D12 85%, #C2410C 100%)`,
-          }}>
-            {/* subtle mountains SVG overlay */}
-            <svg viewBox="0 0 400 200" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-              <path d="M0,140 L50,110 L90,125 L140,95 L190,120 L240,100 L290,125 L340,105 L400,125 L400,200 L0,200 Z" fill="#1F1636" opacity="0.6" />
-              <path d="M0,160 L60,140 L120,155 L180,135 L250,155 L320,140 L400,158 L400,200 L0,200 Z" fill="#0F0A1E" opacity="0.9" />
-              <ellipse cx="200" cy="175" rx="260" ry="14" fill="#FED7AA" opacity="0.18" />
-              <rect y="140" width="400" height="60" fill="url(#noop)" />
-            </svg>
+          <div className="relative h-48" style={{ background: `linear-gradient(180deg, #0A0D20 0%, #1A1435 45%, #7C2D12 85%, #C2410C 100%)` }}>
             <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 40%, rgba(7,9,13,0.85) 100%)" }} />
-
-            {/* Content */}
             <div className="absolute inset-0 p-4 flex flex-col justify-between">
-              <div className="flex items-start justify-between gap-2">
-                <div className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "#FDBA74" }}>
-                  Destination
-                </div>
-                <div className="rounded-full bg-black/40 backdrop-blur border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white">
-                  37° / 11°
-                </div>
-              </div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "#FDBA74" }}>Destination</div>
               <div>
                 <div className="font-display text-xl font-bold text-white truncate">{data.meta.title || "Sajek Valley"}</div>
                 {bengaliTitle && <div className="text-xs text-white/80 mt-0.5 truncate">{bengaliTitle}</div>}
                 {englishSubtitle && <div className="text-[11px] text-white/60 truncate">{englishSubtitle}</div>}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-black/40 backdrop-blur border border-white/10 px-2.5 py-1 text-[10px] font-bold text-white flex items-center gap-1">
-                    <Wallet size={10} /> {fmt(totals.totalExpense)} Planned
-                  </span>
-                  <span className="rounded-full bg-black/40 backdrop-blur border border-white/10 px-2.5 py-1 text-[10px] font-bold text-white flex items-center gap-1">
-                    <CalendarDays size={10} /> {data.meta.dateRange}
-                  </span>
+                  <span className="rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-bold text-white flex items-center gap-1"><Wallet size={10} /> {fmt(totals.totalExpense)}</span>
+                  <span className="rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-bold text-white flex items-center gap-1"><CalendarDays size={10} /> {data.meta.dateRange}</span>
                 </div>
               </div>
             </div>
           </div>
         </Card>
-
       </div>
 
-      {/* ================= RIGHT COLUMN ================= */}
       <div className="lg:col-span-2 space-y-4">
-
-        {/* Stat cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard icon={PiggyBank} label="Collected" value={totals.totalContribution} tone="accent" />
-          <StatCard icon={CheckCircle2} label="Total Received" value={totals.totalPaid} tone="success" />
-          <StatCard icon={Wallet} label="Planned Spend" value={totals.totalExpense} tone="info" />
-          <StatCard
-            icon={totals.reserve >= 0 ? TrendingUp : TrendingDown}
-            label={totals.reserve >= 0 ? "Reserve" : "Deficit"}
-            value={totals.reserve}
-            tone={totals.reserve >= 0 ? "success" : "danger"}
-          />
+          <StatCard icon={CheckCircle2} label="Received" value={totals.totalPaid} tone="success" />
+          <StatCard icon={Wallet} label="Planned" value={totals.totalExpense} tone="info" />
+          <StatCard icon={totals.reserve >= 0 ? TrendingUp : TrendingDown} label={totals.reserve >= 0 ? "Reserve" : "Deficit"} value={totals.reserve} tone={totals.reserve >= 0 ? "success" : "danger"} />
         </div>
-
-        {/* Who's in + Expense mix */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Card className="p-4">
-            <SectionHeading
-              eyebrow={`${totals.headcount} travelers`}
-              title="Who's in"
-              action={<span className="text-[10px] font-bold" style={{ color: BRAND.textDim }}>Manage →</span>}
-            />
+            <SectionHeading eyebrow={`${totals.headcount} travelers`} title="Who's in" />
             <div className="flex flex-wrap gap-2">
               {data.participants.slice(0, 7).map((p) => (
                 <div key={p.id} className="flex flex-col items-center gap-1 min-w-[52px]">
                   <Avatar name={p.name} src={p.avatar} size={44} />
-                  <span className="text-[10px] font-semibold truncate max-w-[56px] text-center" style={{ color: BRAND.textMuted }}>
-                    {p.name || "Unnamed"}
-                  </span>
+                  <span className="text-[10px] font-semibold truncate max-w-[56px] text-center" style={{ color: BRAND.textMuted }}>{p.name || "Unnamed"}</span>
                 </div>
               ))}
-              {data.participants.length > 7 && (
-                <div className="flex flex-col items-center gap-1 min-w-[52px]">
-                  <div className="rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{ width: 44, height: 44, background: BRAND.bgElevated, color: BRAND.textDim, border: `1px solid ${BRAND.border}` }}>
-                    +{data.participants.length - 7}
-                  </div>
-                </div>
-              )}
             </div>
           </Card>
-
           <Card className="p-4">
             <SectionHeading eyebrow="Breakdown" title="Expense mix" />
-            {pieData.length === 0 ? (
-              <p className="text-sm" style={{ color: BRAND.textMuted }}>No expenses yet.</p>
-            ) : (
-              <div key={totals.totalExpense} className="flex items-center gap-3">
+            {pieData.length === 0 ? <p className="text-sm" style={{ color: BRAND.textMuted }}>No expenses yet.</p> : (
+              <div className="flex items-center gap-3">
                 <div className="h-32 w-32 shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={pieData} dataKey="total" nameKey="name" innerRadius={34} outerRadius={58} paddingAngle={2}>
-                        {pieData.map((entry, idx) => (
-                          <Cell key={entry.id} fill={PIE_COLORS[idx % PIE_COLORS.length]} stroke={BRAND.card} strokeWidth={2} />
-                        ))}
+                        {pieData.map((entry, idx) => <Cell key={entry.id} fill={PIE_COLORS[idx % PIE_COLORS.length]} stroke={BRAND.card} strokeWidth={2} />)}
                       </Pie>
                       <RTooltip contentStyle={{ background: BRAND.cardElevated, border: `1px solid ${BRAND.borderLight}`, borderRadius: 12, color: BRAND.text, fontSize: 12 }} formatter={(v) => fmt(v)} />
                     </PieChart>
@@ -986,9 +916,7 @@ function MemberProfile({ memberId, data, totals }) {
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
                         {clampText(c.name, 12)}
                       </span>
-                      <span className="font-num shrink-0 tabular-nums font-semibold" style={{ color: BRAND.text }}>
-                        {fmt(c.total)}
-                      </span>
+                      <span className="font-num shrink-0 tabular-nums font-semibold" style={{ color: BRAND.text }}>{fmt(c.total)}</span>
                     </div>
                   ))}
                 </div>
@@ -996,47 +924,24 @@ function MemberProfile({ memberId, data, totals }) {
             )}
           </Card>
         </div>
-
-        {/* Trip notes */}
         <Card className="p-4">
           <SectionHeading eyebrow="Keep track" title="Trip notes" />
-          <p className="text-sm rounded-lg p-3 border" style={{ color: BRAND.textMuted, background: BRAND.bgElevated, borderColor: BRAND.border }}>
-            {data.meta.notes?.trim() || "Anything the group should remember — who's bringing what, contact numbers, list…"}
-          </p>
+          <p className="text-sm rounded-lg p-3 border" style={{ color: BRAND.textMuted, background: BRAND.bgElevated, borderColor: BRAND.border }}>{data.meta.notes?.trim() || "Anything the group should remember…"}</p>
         </Card>
-
-        {/* Next up */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {nextItems.length === 0 ? (
-            <Card className="p-4 sm:col-span-2">
-              <p className="text-sm" style={{ color: BRAND.textMuted }}>No upcoming stops yet.</p>
-            </Card>
-          ) : (
-            nextItems.map((item, idx) => (
-              <Card key={item.id} className="p-4" hover>
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl p-2.5 shrink-0" style={{ background: BRAND.accent + "18" }}>
-                    <MapPin size={16} color={BRAND.accent} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>
-                      {idx === 0 ? "Next up" : "Later"}
-                    </div>
-                    <div className="font-display text-sm font-bold truncate" style={{ color: BRAND.text }}>
-                      Day {item.day}: {item.title}
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] mt-0.5" style={{ color: BRAND.textMuted }}>
-                      <Clock size={11} /> Day {item.day} · {item.period}
-                      {item.time ? ` · ${item.time}` : ""}
-                    </div>
-                  </div>
-                  <ArrowRight size={14} color={BRAND.textDim} />
+          {nextItems.map((item, idx) => (
+            <Card key={item.id} className="p-4" hover>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl p-2.5 shrink-0" style={{ background: BRAND.accent + "18" }}><MapPin size={16} color={BRAND.accent} /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>{idx === 0 ? "Next up" : "Later"}</div>
+                  <div className="font-display text-sm font-bold truncate" style={{ color: BRAND.text }}>Day {item.day}: {item.title}</div>
                 </div>
-              </Card>
-            ))
-          )}
+                <ArrowRight size={14} color={BRAND.textDim} />
+              </div>
+            </Card>
+          ))}
         </div>
-
       </div>
     </div>
   );
@@ -1056,52 +961,37 @@ function Dashboard({ data, setData, totals, goTo, readOnly }) {
       <div className="relative">
         <Ridgeline height={210} />
         <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-6">
-          <input value={data.meta.title} onChange={readOnly ? undefined : (e) => updateMeta({ title: e.target.value })} disabled={readOnly}
-            className="font-display field w-full max-w-xs bg-transparent text-2xl sm:text-3xl font-bold text-white placeholder-white/50" placeholder="Trip name" />
-          <input value={data.meta.tagline} onChange={readOnly ? undefined : (e) => updateMeta({ tagline: e.target.value })} disabled={readOnly}
-            className="field mt-1 w-full max-w-xs bg-transparent text-xs sm:text-sm text-white/80 placeholder-white/50" placeholder="Tagline" />
+          <input value={data.meta.title} onChange={readOnly ? undefined : (e) => updateMeta({ title: e.target.value })} disabled={readOnly} className="font-display field w-full max-w-xs bg-transparent text-2xl sm:text-3xl font-bold text-white placeholder-white/50" placeholder="Trip name" />
+          <input value={data.meta.tagline} onChange={readOnly ? undefined : (e) => updateMeta({ tagline: e.target.value })} disabled={readOnly} className="field mt-1 w-full max-w-xs bg-transparent text-xs sm:text-sm text-white/80 placeholder-white/50" placeholder="Tagline" />
           <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-white/10 backdrop-blur px-3 py-1 text-xs text-white border border-white/10 flex items-center gap-1">
-              <Users size={11} /> {totals.headcount} travelers
-            </span>
-            <input value={data.meta.dateRange} onChange={readOnly ? undefined : (e) => updateMeta({ dateRange: e.target.value })} disabled={readOnly}
-              className="field rounded-full bg-white/10 backdrop-blur px-3 py-1 text-xs text-white placeholder-white/60 border border-white/10" style={{ width: 130 }} />
-            <input value={data.meta.duration} onChange={readOnly ? undefined : (e) => updateMeta({ duration: e.target.value })} disabled={readOnly}
-              className="field rounded-full bg-white/10 backdrop-blur px-3 py-1 text-xs text-white placeholder-white/60 border border-white/10" style={{ width: 130 }} />
+            <span className="rounded-full bg-white/10 backdrop-blur px-3 py-1 text-xs text-white border border-white/10 flex items-center gap-1"><Users size={11} /> {totals.headcount} travelers</span>
+            <input value={data.meta.dateRange} onChange={readOnly ? undefined : (e) => updateMeta({ dateRange: e.target.value })} disabled={readOnly} className="field rounded-full bg-white/10 backdrop-blur px-3 py-1 text-xs text-white placeholder-white/60 border border-white/10" style={{ width: 130 }} />
+            <input value={data.meta.duration} onChange={readOnly ? undefined : (e) => updateMeta({ duration: e.target.value })} disabled={readOnly} className="field rounded-full bg-white/10 backdrop-blur px-3 py-1 text-xs text-white placeholder-white/60 border border-white/10" style={{ width: 130 }} />
           </div>
         </div>
       </div>
-
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon={PiggyBank} label="Collected" value={totals.totalContribution} tone="accent" />
         <StatCard icon={CheckCircle2} label="Received" value={totals.totalPaid} tone="success" />
         <StatCard icon={Wallet} label="Planned" value={totals.totalExpense} tone="info" />
         <StatCard icon={totals.reserve >= 0 ? TrendingUp : TrendingDown} label={totals.reserve >= 0 ? "Reserve" : "Deficit"} value={totals.reserve} tone={totals.reserve >= 0 ? "success" : "danger"} />
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Card className="p-4">
           <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}><span>Received</span><span>{Math.round(paidPct)}%</span></div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full" style={{ background: BRAND.border }}>
-            <div className="h-full rounded-full transition-width" style={{ width: paidPct + "%", background: `linear-gradient(90deg, ${BRAND.accent}, ${BRAND.accentSoft})` }} />
-          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full" style={{ background: BRAND.border }}><div className="h-full rounded-full transition-width" style={{ width: paidPct + "%", background: `linear-gradient(90deg, ${BRAND.accent}, ${BRAND.accentSoft})` }} /></div>
           <div className="mt-2 text-xs" style={{ color: BRAND.textMuted }}>{fmt(totals.totalPaid)} received · {fmt(Math.max(0, totals.totalContribution - totals.totalPaid))} pending</div>
         </Card>
         <Card className="p-4">
           <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}><span>Spend</span><span>{Math.round(spentPct)}%</span></div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full" style={{ background: BRAND.border }}>
-            <div className="h-full rounded-full transition-width" style={{ width: spentPct + "%", background: totals.reserve >= 0 ? `linear-gradient(90deg, ${BRAND.info}, #60A5FA)` : `linear-gradient(90deg, ${BRAND.danger}, #F87171)` }} />
-          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full" style={{ background: BRAND.border }}><div className="h-full rounded-full transition-width" style={{ width: spentPct + "%", background: totals.reserve >= 0 ? `linear-gradient(90deg, ${BRAND.info}, #60A5FA)` : `linear-gradient(90deg, ${BRAND.danger}, #F87171)` }} /></div>
           <div className="mt-2 text-xs" style={{ color: BRAND.textMuted }}>{totals.reserve >= 0 ? `${fmt(totals.reserve)} reserve left` : `Over budget by ${fmt(Math.abs(totals.reserve))}`}</div>
         </Card>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
         <Card className="p-4 lg:col-span-3">
           <SectionHeading eyebrow="Breakdown" title="Expense mix" />
-          {pieData.length === 0 ? (
-            <EmptyState icon={Wallet} title="No expenses yet" message="Add a category in Budget." />
-          ) : (
+          {pieData.length === 0 ? <EmptyState icon={Wallet} title="No expenses yet" message="Add a category in Budget." /> : (
             <div key={totals.totalExpense} className="flex flex-col sm:flex-row items-center gap-4">
               <div className="h-44 w-44 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -1127,7 +1017,6 @@ function Dashboard({ data, setData, totals, goTo, readOnly }) {
             </div>
           )}
         </Card>
-
         <Card className="p-4 lg:col-span-2">
           <SectionHeading eyebrow={`${totals.headcount} travelers`} title="Who's in" action={<button onClick={() => goTo("budget")} className="flex items-center gap-1 text-xs font-semibold" style={{ color: BRAND.accent }}>Manage <ArrowRight size={11} /></button>} />
           <div className="flex flex-wrap gap-2">
@@ -1137,14 +1026,12 @@ function Dashboard({ data, setData, totals, goTo, readOnly }) {
                 <span className="text-[11px] font-medium truncate max-w-[70px]" style={{ color: BRAND.text }}>{p.name || "Unnamed"}</span>
               </div>
             ))}
-            {data.participants.length > 8 && <span className="rounded-full px-2.5 py-0.5 text-[11px] self-center" style={{ background: BRAND.bgElevated, color: BRAND.textDim }}>+{data.participants.length - 8}</span>}
           </div>
         </Card>
       </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Card className="p-4">
-          <SectionHeading eyebrow="Next up" title={nextItem ? nextItem.title : "No plan yet"} action={<button onClick={() => goTo("itinerary")} className="flex items-center gap-1 text-xs font-semibold" style={{ color: BRAND.accent }}>Full plan <ArrowRight size={11} /></button>} />
+          <SectionHeading eyebrow="Next up" title={nextItem ? nextItem.title : "No plan yet"} />
           {nextItem ? (
             <div className="flex items-center gap-2 text-sm" style={{ color: BRAND.textMuted }}>
               <div className="rounded-lg p-1.5" style={{ background: BRAND.accent + "18" }}><Clock size={13} color={BRAND.accent} /></div>
@@ -1167,17 +1054,9 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
   const [showMatrix, setShowMatrix] = useState(false);
   const [paymentFor, setPaymentFor] = useState(null);
 
-  const updateParticipant = (id, patch) =>
-    setData((d) => ({ ...d, participants: d.participants.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
-  const addParticipant = () =>
-    setData((d) => ({ ...d, participants: [...d.participants, { id: uid("p"), name: "New Traveler", contribution: 0, avatar: "", paid: 0, payments: [] }] }));
-  const removeParticipant = (id, name) =>
-    confirmAction({
-      title: "Remove traveler?",
-      message: (name || "This traveler") + " will be removed and every total will recalculate.",
-      confirmLabel: "Remove",
-      onConfirm: () => setData((d) => ({ ...d, participants: d.participants.filter((p) => p.id !== id) })),
-    });
+  const updateParticipant = (id, patch) => setData((d) => ({ ...d, participants: d.participants.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
+  const addParticipant = () => setData((d) => ({ ...d, participants: [...d.participants, { id: uid("p"), name: "New Traveler", contribution: 0, avatar: "", paid: 0, payments: [] }] }));
+  const removeParticipant = (id, name) => confirmAction({ title: "Remove traveler?", message: (name || "This traveler") + " will be removed.", confirmLabel: "Remove", onConfirm: () => setData((d) => ({ ...d, participants: d.participants.filter((p) => p.id !== id) })) });
   const recordPayment = (participantId, amount, note, date) => {
     setData((d) => ({
       ...d,
@@ -1188,19 +1067,10 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
       }),
     }));
   };
-  const updateCategory = (id, patch) =>
-    setData((d) => ({ ...d, categories: d.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
-  const addCategory = () =>
-    setData((d) => ({ ...d, categories: [...d.categories, { id: uid("c"), name: "New Category", icon: "other", mode: "fixed", rate: 0, fixed: 0, useFoodRate: false, note: "", paidAmount: 0 }] }));
-  const removeCategory = (id, name) =>
-    confirmAction({
-      title: "Remove category?",
-      message: '"' + name + "\" and its cost will be removed from every traveler's share.",
-      confirmLabel: "Remove",
-      onConfirm: () => setData((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== id) })),
-    });
-  const updateFoodItem = (id, patch) =>
-    setData((d) => ({ ...d, foodItems: d.foodItems.map((f) => (f.id === id ? { ...f, ...patch } : f)) }));
+  const updateCategory = (id, patch) => setData((d) => ({ ...d, categories: d.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
+  const addCategory = () => setData((d) => ({ ...d, categories: [...d.categories, { id: uid("c"), name: "New Category", icon: "other", mode: "fixed", rate: 0, fixed: 0, useFoodRate: false, note: "", paidAmount: 0 }] }));
+  const removeCategory = (id, name) => confirmAction({ title: "Remove category?", message: '"' + name + '" and its cost will be removed.', confirmLabel: "Remove", onConfirm: () => setData((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== id) })) });
+  const updateFoodItem = (id, patch) => setData((d) => ({ ...d, foodItems: d.foodItems.map((f) => (f.id === id ? { ...f, ...patch } : f)) }));
   const addFoodItem = () => setData((d) => ({ ...d, foodItems: [...d.foodItems, { id: uid("f"), name: "New item", amount: 0 }] }));
   const removeFoodItem = (id) => setData((d) => ({ ...d, foodItems: d.foodItems.filter((f) => f.id !== id) }));
 
@@ -1210,38 +1080,24 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Card className="p-3 sm:p-4">
-          <div className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: BRAND.textDim }}>Collected</div>
-          <div className="font-num mt-1 text-lg sm:text-xl font-bold tabular-nums" style={{ color: BRAND.text }}><CountUp value={totals.totalContribution} prefix="৳" /></div>
-        </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: BRAND.textDim }}>Received</div>
-          <div className="font-num mt-1 text-lg sm:text-xl font-bold tabular-nums" style={{ color: BRAND.success }}><CountUp value={totals.totalPaid} prefix="৳" /></div>
-        </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: BRAND.textDim }}>Pending</div>
-          <div className="font-num mt-1 text-lg sm:text-xl font-bold tabular-nums" style={{ color: totalRemainingToPay > 0 ? BRAND.danger : BRAND.success }}><CountUp value={totalRemainingToPay} prefix="৳" /></div>
-        </Card>
+        <Card className="p-3 sm:p-4"><div className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: BRAND.textDim }}>Collected</div><div className="font-num mt-1 text-lg sm:text-xl font-bold tabular-nums" style={{ color: BRAND.text }}><CountUp value={totals.totalContribution} prefix="৳" /></div></Card>
+        <Card className="p-3 sm:p-4"><div className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: BRAND.textDim }}>Received</div><div className="font-num mt-1 text-lg sm:text-xl font-bold tabular-nums" style={{ color: BRAND.success }}><CountUp value={totals.totalPaid} prefix="৳" /></div></Card>
+        <Card className="p-3 sm:p-4"><div className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: BRAND.textDim }}>Pending</div><div className="font-num mt-1 text-lg sm:text-xl font-bold tabular-nums" style={{ color: totalRemainingToPay > 0 ? BRAND.danger : BRAND.success }}><CountUp value={totalRemainingToPay} prefix="৳" /></div></Card>
       </div>
-
       <Card className="p-3 sm:p-4">
         <SectionHeading eyebrow={`${data.participants.length} travelers`} title="Participants" action={!readOnly && <IconBtn icon={Plus} onClick={addParticipant} label="Add traveler" tone="accent" />} />
-        {data.participants.length === 0 ? (
-          <EmptyState icon={Users} title="No travelers yet" message="Add everyone chipping in." />
-        ) : (
+        {data.participants.length === 0 ? <EmptyState icon={Users} title="No travelers yet" message="Add everyone chipping in." /> : (
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: BRAND.border }}>
             <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr style={{ background: BRAND.bgElevated }}>
-                  <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: BRAND.textDim }}>Name</th>
-                  <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[90px]" style={{ color: BRAND.textDim }}>Contrib</th>
-                  <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[90px]" style={{ color: BRAND.textDim }}>Paid</th>
-                  <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[90px]" style={{ color: BRAND.textDim }}>Remaining</th>
-                  <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[80px] hidden sm:table-cell" style={{ color: BRAND.textDim }}>Share</th>
-                  <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[80px] hidden sm:table-cell" style={{ color: BRAND.textDim }}>Balance</th>
-                  <th className="w-[70px]"></th>
-                </tr>
-              </thead>
+              <thead><tr style={{ background: BRAND.bgElevated }}>
+                <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: BRAND.textDim }}>Name</th>
+                <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[90px]" style={{ color: BRAND.textDim }}>Contrib</th>
+                <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[90px]" style={{ color: BRAND.textDim }}>Paid</th>
+                <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[90px]" style={{ color: BRAND.textDim }}>Remaining</th>
+                <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[80px] hidden sm:table-cell" style={{ color: BRAND.textDim }}>Share</th>
+                <th className="text-right px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] w-[80px] hidden sm:table-cell" style={{ color: BRAND.textDim }}>Balance</th>
+                <th className="w-[70px]"></th>
+              </tr></thead>
               <tbody>
                 {data.participants.map((p) => {
                   const share = personTotalShare(p, totals, data);
@@ -1249,45 +1105,21 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
                   const paid = num(Number(p.paid));
                   const remaining = num(Number(p.contribution)) - paid;
                   return (
-                    <tr key={p.id} className="border-t align-middle" style={{ borderColor: BRAND.border }}>
-                      <td className="px-3 py-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Avatar name={p.name} src={p.avatar} size={22} />
-                          <div className="min-w-0 flex-1">
-                            <TextInput value={p.name} onChange={(v) => updateParticipant(p.id, { name: v })} placeholder="Name" disabled={readOnly} className="!text-[13px] !py-1 !px-1.5" />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <NumberInput value={p.contribution} onChange={(v) => updateParticipant(p.id, { contribution: v })} disabled={readOnly} className="!text-[13px] !py-1 !px-1.5 !w-full text-right" />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <NumberInput value={paid} onChange={(v) => updateParticipant(p.id, { paid: v })} disabled={readOnly} className="!text-[13px] !py-1 !px-1.5 !w-full text-right" />
-                      </td>
-                      <td className="px-2 py-1.5 text-right">
-                        <span className="font-num tabular-nums text-[13px] font-semibold" style={{ color: remaining > 0 ? BRAND.danger : BRAND.success }}>{fmt(remaining)}</span>
-                      </td>
-                      <td className="px-2 py-1.5 text-right hidden sm:table-cell">
-                        <span className="font-num tabular-nums text-[13px]" style={{ color: BRAND.textMuted }}>{fmt(share)}</span>
-                      </td>
-                      <td className="px-2 py-1.5 text-right hidden sm:table-cell">
-                        <span className="font-num tabular-nums text-[13px] font-semibold" style={{ color: balance < -1 ? BRAND.danger : BRAND.success }}>
-                          {Math.abs(balance) < 1 ? "Settled" : fmt(balance)}
-                        </span>
-                      </td>
-                      <td className="px-1.5 py-1.5">
-                        <div className="flex items-center justify-end gap-0">
-                          {!readOnly && <IconBtn icon={Receipt} onClick={() => setPaymentFor(p.id)} label="Record payment" tone="accent" size={14} />}
-                          {!readOnly && <IconBtn icon={Trash2} onClick={() => removeParticipant(p.id, p.name)} label="Remove traveler" tone="danger" size={14} />}
-                        </div>
-                      </td>
+                    <tr key={p.id} className="border-t" style={{ borderColor: BRAND.border }}>
+                      <td className="px-3 py-1.5"><div className="flex items-center gap-2 min-w-0"><Avatar name={p.name} src={p.avatar} size={22} /><div className="min-w-0 flex-1"><TextInput value={p.name} onChange={(v) => updateParticipant(p.id, { name: v })} placeholder="Name" disabled={readOnly} className="!text-[13px] !py-1 !px-1.5" /></div></div></td>
+                      <td className="px-2 py-1.5"><NumberInput value={p.contribution} onChange={(v) => updateParticipant(p.id, { contribution: v })} disabled={readOnly} className="!text-[13px] !py-1 !px-1.5 !w-full text-right" /></td>
+                      <td className="px-2 py-1.5"><NumberInput value={paid} onChange={(v) => updateParticipant(p.id, { paid: v })} disabled={readOnly} className="!text-[13px] !py-1 !px-1.5 !w-full text-right" /></td>
+                      <td className="px-2 py-1.5 text-right"><span className="font-num tabular-nums text-[13px] font-semibold" style={{ color: remaining > 0 ? BRAND.danger : BRAND.success }}>{fmt(remaining)}</span></td>
+                      <td className="px-2 py-1.5 text-right hidden sm:table-cell"><span className="font-num tabular-nums text-[13px]" style={{ color: BRAND.textMuted }}>{fmt(share)}</span></td>
+                      <td className="px-2 py-1.5 text-right hidden sm:table-cell"><span className="font-num tabular-nums text-[13px] font-semibold" style={{ color: balance < -1 ? BRAND.danger : BRAND.success }}>{Math.abs(balance) < 1 ? "Settled" : fmt(balance)}</span></td>
+                      <td className="px-1.5 py-1.5"><div className="flex items-center justify-end gap-0">{!readOnly && <IconBtn icon={Receipt} onClick={() => setPaymentFor(p.id)} label="Record payment" tone="accent" size={14} />}{!readOnly && <IconBtn icon={Trash2} onClick={() => removeParticipant(p.id, p.name)} label="Remove traveler" tone="danger" size={14} />}</div></td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
-                <tr className="border-t-2" style={{ borderColor: BRAND.borderLight, background: BRAND.bgElevated }}>
-                  <td className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: BRAND.textDim }}>Total</td>
+                <tr style={{ background: BRAND.bgElevated }}>
+                  <td className="px-3 py-2 text-[10px] font-bold uppercase" style={{ color: BRAND.textDim }}>Total</td>
                   <td className="font-num px-2 py-2 text-right tabular-nums text-[13px] font-bold" style={{ color: BRAND.text }}>{fmt(totals.totalContribution)}</td>
                   <td className="font-num px-2 py-2 text-right tabular-nums text-[13px] font-bold" style={{ color: BRAND.success }}>{fmt(totals.totalPaid)}</td>
                   <td className="font-num px-2 py-2 text-right tabular-nums text-[13px] font-bold" style={{ color: totalRemainingToPay > 0 ? BRAND.danger : BRAND.success }}>{fmt(totalRemainingToPay)}</td>
@@ -1300,21 +1132,12 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
           </div>
         )}
       </Card>
-
       <Card className="p-4">
         <SectionHeading title="How costs are split" />
-        {readOnly ? (
-          <p className="text-sm" style={{ color: BRAND.textMuted }}>{data.allocationRule === "contribution" ? "By contribution ratio" : "Equal split"}</p>
-        ) : (
-          <>
-            <Segmented value={data.allocationRule} onChange={(v) => setData((d) => ({ ...d, allocationRule: v }))} options={[{ value: "contribution", label: "By contribution ratio" }, { value: "equal", label: "Equal split" }]} />
-            <p className="mt-2 text-xs" style={{ color: BRAND.textMuted }}>
-              {data.allocationRule === "contribution" ? "Each traveler's share of every cost equals their share of the total pool." : "Every cost divides evenly across all travelers."}
-            </p>
-          </>
+        {readOnly ? <p className="text-sm" style={{ color: BRAND.textMuted }}>{data.allocationRule === "contribution" ? "By contribution ratio" : "Equal split"}</p> : (
+          <><Segmented value={data.allocationRule} onChange={(v) => setData((d) => ({ ...d, allocationRule: v }))} options={[{ value: "contribution", label: "By contribution ratio" }, { value: "equal", label: "Equal split" }]} /><p className="mt-2 text-xs" style={{ color: BRAND.textMuted }}>{data.allocationRule === "contribution" ? "Each traveler's share of every cost equals their share of the total pool." : "Every cost divides evenly across all travelers."}</p></>
         )}
       </Card>
-
       <Card className="p-4">
         <SectionHeading eyebrow={`${fmt(totals.totalExpense)} planned`} title="Expense categories" action={!readOnly && <IconBtn icon={Plus} onClick={addCategory} label="Add category" tone="accent" />} />
         <div className="space-y-3">
@@ -1326,75 +1149,36 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
             return (
               <div key={c.id} className="rounded-xl p-3.5 border" style={{ borderColor: BRAND.border, background: BRAND.bgElevated }}>
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex flex-1 items-center gap-2.5 min-w-0">
-                    <div className="rounded-lg p-1.5 shrink-0" style={{ background: BRAND.accent + "18" }}><Icon size={14} color={BRAND.accent} /></div>
-                    <TextInput value={c.name} onChange={(v) => updateCategory(c.id, { name: v })} className="font-semibold" disabled={readOnly} />
-                  </div>
+                  <div className="flex flex-1 items-center gap-2.5 min-w-0"><div className="rounded-lg p-1.5 shrink-0" style={{ background: BRAND.accent + "18" }}><Icon size={14} color={BRAND.accent} /></div><TextInput value={c.name} onChange={(v) => updateCategory(c.id, { name: v })} className="font-semibold" disabled={readOnly} /></div>
                   {!readOnly && <IconBtn icon={Trash2} onClick={() => removeCategory(c.id, c.name)} label="Remove category" tone="danger" />}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {readOnly ? (
-                    <span className="text-xs" style={{ color: BRAND.textMuted }}>{c.mode === "fixed" ? "Fixed" : "Per person"}</span>
-                  ) : (
-                    <Segmented small value={c.mode} onChange={(v) => updateCategory(c.id, { mode: v })} options={[{ value: "fixed", label: "Fixed" }, { value: "per-person", label: "Per person" }]} />
-                  )}
+                  {readOnly ? <span className="text-xs" style={{ color: BRAND.textMuted }}>{c.mode === "fixed" ? "Fixed" : "Per person"}</span> : <Segmented small value={c.mode} onChange={(v) => updateCategory(c.id, { mode: v })} options={[{ value: "fixed", label: "Fixed" }, { value: "per-person", label: "Per person" }]} />}
                   {c.mode === "fixed" ? (
-                    <div className="flex items-center gap-1.5 text-sm">
-                      <span className="text-xs" style={{ color: BRAND.textDim }}>Total</span>
-                      <NumberInput value={c.fixed} onChange={(v) => updateCategory(c.id, { fixed: v })} className="w-24" disabled={readOnly} />
-                    </div>
+                    <div className="flex items-center gap-1.5 text-sm"><span className="text-xs" style={{ color: BRAND.textDim }}>Total</span><NumberInput value={c.fixed} onChange={(v) => updateCategory(c.id, { fixed: v })} className="w-24" disabled={readOnly} /></div>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <span className="text-xs" style={{ color: BRAND.textDim }}>Rate</span>
-                        <NumberInput value={c.useFoodRate ? totals.foodRate : c.rate} onChange={(v) => updateCategory(c.id, { rate: v })} disabled={readOnly || c.useFoodRate} className="w-20" />
-                      </div>
-                      {!readOnly && (
-                        <button onClick={() => updateCategory(c.id, { useFoodRate: !c.useFoodRate })} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider" style={c.useFoodRate ? { background: BRAND.warning + "22", color: BRAND.warning } : { background: BRAND.border, color: BRAND.textMuted }}>
-                          <Link2 size={10} /> Food link
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1.5 text-sm"><span className="text-xs" style={{ color: BRAND.textDim }}>Rate</span><NumberInput value={c.useFoodRate ? totals.foodRate : c.rate} onChange={(v) => updateCategory(c.id, { rate: v })} disabled={readOnly || c.useFoodRate} className="w-20" /></div>
+                      {!readOnly && <button onClick={() => updateCategory(c.id, { useFoodRate: !c.useFoodRate })} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider" style={c.useFoodRate ? { background: BRAND.warning + "22", color: BRAND.warning } : { background: BRAND.border, color: BRAND.textMuted }}><Link2 size={10} /> Food link</button>}
                       <span className="font-num text-xs tabular-nums" style={{ color: BRAND.textMuted }}>× {totals.headcount} = {fmt(c.total)}</span>
                     </div>
                   )}
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-3 items-end">
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Total</div>
-                    <div className="font-num text-sm font-bold mt-0.5 tabular-nums" style={{ color: BRAND.text }}>{fmt(c.total)}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Paid</div>
-                    <NumberInput value={catPaid} onChange={(v) => updateCategory(c.id, { paidAmount: v })} className="mt-0.5" disabled={readOnly} />
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Remaining</div>
-                    <div className="font-num text-sm font-bold mt-0.5 tabular-nums" style={{ color: catRemaining > 0 ? BRAND.danger : BRAND.success }}>{fmt(catRemaining)}</div>
-                  </div>
+                  <div><div className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Total</div><div className="font-num text-sm font-bold mt-0.5 tabular-nums" style={{ color: BRAND.text }}>{fmt(c.total)}</div></div>
+                  <div><div className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Paid</div><NumberInput value={catPaid} onChange={(v) => updateCategory(c.id, { paidAmount: v })} className="mt-0.5" disabled={readOnly} /></div>
+                  <div><div className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Remaining</div><div className="font-num text-sm font-bold mt-0.5 tabular-nums" style={{ color: catRemaining > 0 ? BRAND.danger : BRAND.success }}>{fmt(catRemaining)}</div></div>
                 </div>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: BRAND.border }}>
-                  <div className="h-full rounded-full transition-width" style={{ width: catPct + "%", background: catRemaining > 0 ? `linear-gradient(90deg, ${BRAND.accent}, ${BRAND.accentSoft})` : `linear-gradient(90deg, ${BRAND.success}, ${BRAND.successSoft})` }} />
-                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: BRAND.border }}><div className="h-full rounded-full transition-width" style={{ width: catPct + "%", background: catRemaining > 0 ? `linear-gradient(90deg, ${BRAND.accent}, ${BRAND.accentSoft})` : `linear-gradient(90deg, ${BRAND.success}, ${BRAND.successSoft})` }} /></div>
                 {c.note && <p className="mt-2 text-xs" style={{ color: BRAND.textDim }}>{c.note}</p>}
               </div>
             );
           })}
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 border" style={{ borderColor: BRAND.borderLight, background: BRAND.bgElevated }}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Total</span>
-          <div className="flex flex-wrap items-center gap-4 text-xs">
-            <div className="flex items-center gap-1.5"><span style={{ color: BRAND.textDim }}>Planned</span><span className="font-num font-bold tabular-nums" style={{ color: BRAND.text }}>{fmt(totals.totalExpense)}</span></div>
-            <div className="flex items-center gap-1.5"><span style={{ color: BRAND.textDim }}>Paid</span><span className="font-num font-bold tabular-nums" style={{ color: BRAND.success }}>{fmt(totals.totalExpensePaid)}</span></div>
-            <div className="flex items-center gap-1.5"><span style={{ color: BRAND.textDim }}>Remaining</span><span className="font-num font-bold tabular-nums" style={{ color: totals.totalExpense - totals.totalExpensePaid > 0 ? BRAND.danger : BRAND.success }}>{fmt(totals.totalExpense - totals.totalExpensePaid)}</span></div>
-          </div>
-        </div>
       </Card>
-
       <Card className="p-4">
         <SectionHeading eyebrow={`${fmt(totals.foodRate)} / person`} title="Food breakdown" />
-        <p className="mb-3 text-xs" style={{ color: BRAND.textMuted }}>
-          {linkedCategoryNames.length > 0 ? "Powers: " + linkedCategoryNames.join(", ") : 'Not linked to a category yet.'}
-        </p>
+        <p className="mb-3 text-xs" style={{ color: BRAND.textMuted }}>{linkedCategoryNames.length > 0 ? "Powers: " + linkedCategoryNames.join(", ") : 'Not linked to a category yet.'}</p>
         <div className="space-y-2">
           {data.foodItems.map((f) => (
             <div key={f.id} className="flex items-center gap-2">
@@ -1404,13 +1188,8 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
             </div>
           ))}
         </div>
-        {!readOnly && (
-          <button onClick={addFoodItem} className="mt-3 flex items-center gap-1.5 text-sm font-semibold" style={{ color: BRAND.accent }}>
-            <Plus size={14} /> Add meal item
-          </button>
-        )}
+        {!readOnly && <button onClick={addFoodItem} className="mt-3 flex items-center gap-1.5 text-sm font-semibold" style={{ color: BRAND.accent }}><Plus size={14} /> Add meal item</button>}
       </Card>
-
       <Card className="p-4">
         <button onClick={() => setShowMatrix((s) => !s)} className="flex w-full items-center justify-between">
           <SectionHeading eyebrow="Audit view" title="Cost-share matrix" />
@@ -1419,36 +1198,21 @@ function Budget({ data, setData, totals, confirmAction, readOnly }) {
         {showMatrix && (
           <div className="overflow-x-auto -mx-2 px-2">
             <table className="w-full border-collapse text-xs" style={{ minWidth: 560 }}>
-              <thead>
-                <tr>
-                  {["Name", "Contribution", ...totals.catTotals.map((c) => clampText(c.name, 10)), "Total share"].map((h, i) => (
-                    <th key={h + i} className={"pb-2 pr-3 font-bold uppercase tracking-[0.1em] text-[10px] whitespace-nowrap " + (i === 0 ? "text-left" : "text-right")} style={{ color: BRAND.textDim }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
+              <thead><tr>{["Name", "Contribution", ...totals.catTotals.map((c) => clampText(c.name, 10)), "Total share"].map((h, i) => (<th key={h + i} className={"pb-2 pr-3 font-bold uppercase tracking-[0.1em] text-[10px] whitespace-nowrap " + (i === 0 ? "text-left" : "text-right")} style={{ color: BRAND.textDim }}>{h}</th>))}</tr></thead>
               <tbody>
                 {data.participants.map((p) => (
                   <tr key={p.id} className="font-num border-t tabular-nums" style={{ borderColor: BRAND.border }}>
                     <td className="py-2 pr-3 font-body text-left" style={{ color: BRAND.text }}>{p.name}</td>
                     <td className="py-2 pr-3 text-right" style={{ color: BRAND.text }}>{fmt(p.contribution)}</td>
-                    {totals.catTotals.map((c) => (
-                      <td key={c.id} className="py-2 pr-3 text-right" style={{ color: BRAND.textMuted }}>{fmt(personCategoryShare(p, c, totals, data))}</td>
-                    ))}
+                    {totals.catTotals.map((c) => <td key={c.id} className="py-2 pr-3 text-right" style={{ color: BRAND.textMuted }}>{fmt(personCategoryShare(p, c, totals, data))}</td>)}
                     <td className="py-2 pr-3 font-semibold text-right" style={{ color: BRAND.text }}>{fmt(personTotalShare(p, totals, data))}</td>
                   </tr>
                 ))}
-                <tr className="font-num border-t-2 font-bold tabular-nums" style={{ borderColor: BRAND.borderLight }}>
-                  <td className="py-2 pr-3 font-body text-left" style={{ color: BRAND.text }}>Total</td>
-                  <td className="py-2 pr-3 text-right" style={{ color: BRAND.text }}>{fmt(totals.totalContribution)}</td>
-                  {totals.catTotals.map((c) => <td key={c.id} className="py-2 pr-3 text-right" style={{ color: BRAND.text }}>{fmt(c.total)}</td>)}
-                  <td className="py-2 pr-3 text-right" style={{ color: BRAND.text }}>{fmt(totals.totalExpense)}</td>
-                </tr>
               </tbody>
             </table>
           </div>
         )}
       </Card>
-
       <PaymentDialog open={!!paymentFor} person={paymentFor ? data.participants.find((p) => p.id === paymentFor) : null} onClose={() => setPaymentFor(null)} onSave={(amount, note, date) => recordPayment(paymentFor, amount, note, date)} />
     </div>
   );
@@ -1461,14 +1225,12 @@ const PERIOD_OPTIONS = ["Early Morning", "Morning", "Midday", "Afternoon", "Even
 function Itinerary({ data, setData, confirmAction, readOnly }) {
   const days = Array.from(new Set(data.itinerary.map((i) => i.day))).sort((a, b) => a - b);
   const maxDay = days.length ? Math.max.apply(null, days) : 0;
-
   const updateItem = (id, patch) => setData((d) => ({ ...d, itinerary: d.itinerary.map((i) => (i.id === id ? { ...i, ...patch } : i)) }));
   const handleImageUpload = (id, e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => updateItem(id, { image: reader.result }); reader.readAsDataURL(file); };
   const addItem = (day) => setData((d) => ({ ...d, itinerary: [...d.itinerary, { id: uid("i"), day, period: "Morning", time: "", title: "New stop", location: "", notes: "", risk: "", image: "" }] }));
-  const removeItem = (id, title) => confirmAction({ title: "Remove itinerary item?", message: '"' + (title || "This item") + '" will be removed from the plan.', confirmLabel: "Remove", onConfirm: () => setData((d) => ({ ...d, itinerary: d.itinerary.filter((i) => i.id !== id) })) });
+  const removeItem = (id, title) => confirmAction({ title: "Remove itinerary item?", message: '"' + (title || "This item") + '" will be removed.', confirmLabel: "Remove", onConfirm: () => setData((d) => ({ ...d, itinerary: d.itinerary.filter((i) => i.id !== id) })) });
   const addDay = () => setData((d) => ({ ...d, itinerary: [...d.itinerary, { id: uid("i"), day: maxDay + 1, period: "Morning", time: "", title: "New stop", location: "", notes: "", risk: "", image: "" }] }));
-  const removeDay = (day) => confirmAction({ title: "Remove Day " + day + "?", message: "Every item planned for this day will be removed too.", confirmLabel: "Remove day", onConfirm: () => setData((d) => ({ ...d, itinerary: d.itinerary.filter((i) => i.day !== day) })) });
-
+  const removeDay = (day) => confirmAction({ title: "Remove Day " + day + "?", message: "Every item for this day will be removed too.", confirmLabel: "Remove day", onConfirm: () => setData((d) => ({ ...d, itinerary: d.itinerary.filter((i) => i.day !== day) })) });
   const moveItem = (id, direction) => {
     setData((d) => {
       const list = d.itinerary.slice();
@@ -1488,15 +1250,13 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
 
   return (
     <div className="space-y-8">
-      {days.length === 0 ? (
-        <EmptyState icon={CalendarDays} title="No plan yet" message="Add your first day and start dropping in stops." />
-      ) : (
+      {days.length === 0 ? <EmptyState icon={CalendarDays} title="No plan yet" message="Add your first day and start dropping in stops." /> : (
         days.map((day) => {
           const items = data.itinerary.filter((i) => i.day === day);
           return (
             <div key={day} className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="rounded-full px-4 py-1.5 text-sm font-bold text-white shadow-lg whitespace-nowrap" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)`, boxShadow: `0 4px 16px ${BRAND.accent}44` }}>Day {day}</div>
+                <div className="rounded-full px-4 py-1.5 text-sm font-bold text-white shadow-lg whitespace-nowrap" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>Day {day}</div>
                 <div className="h-px flex-1" style={{ background: BRAND.border }} />
                 <span className="text-[10px] uppercase tracking-[0.15em] font-bold whitespace-nowrap" style={{ color: BRAND.textDim }}>{items.length} {items.length === 1 ? "stop" : "stops"}</span>
                 {!readOnly && <IconBtn icon={Trash2} onClick={() => removeDay(day)} label={"Remove day " + day} tone="danger" />}
@@ -1509,38 +1269,23 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
                       <div className="flex flex-col sm:flex-row">
                         <div className="flex-1 p-4 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-3">
-                            {readOnly ? (
-                              <span className="font-num rounded-lg px-2.5 py-1 text-xs font-bold tracking-wider text-white tabular-nums" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>{item.time || "—"}</span>
-                            ) : (
-                              <input type="time" value={item.time} onChange={(e) => updateItem(item.id, { time: e.target.value })} className="field font-num rounded-lg px-2 py-1 text-xs font-bold tabular-nums border" style={{ color: BRAND.accent, background: BRAND.bgElevated, borderColor: BRAND.border }} />
-                            )}
-                            {readOnly ? (
-                              <span className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap" style={{ background: BRAND.bgElevated, color: BRAND.textMuted, border: `1px solid ${BRAND.border}` }}><PIcon size={11} /> {item.period}</span>
-                            ) : (
+                            {readOnly ? <span className="font-num rounded-lg px-2.5 py-1 text-xs font-bold tracking-wider text-white tabular-nums" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>{item.time || "—"}</span> : <input type="time" value={item.time} onChange={(e) => updateItem(item.id, { time: e.target.value })} className="field font-num rounded-lg px-2 py-1 text-xs font-bold tabular-nums border" style={{ color: BRAND.accent, background: BRAND.bgElevated, borderColor: BRAND.border }} />}
+                            {readOnly ? <span className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap" style={{ background: BRAND.bgElevated, color: BRAND.textMuted, border: `1px solid ${BRAND.border}` }}><PIcon size={11} /> {item.period}</span> : (
                               <div className="flex items-center gap-1">
                                 <PIcon size={12} color={BRAND.accent} />
-                                <select value={item.period} onChange={(e) => updateItem(item.id, { period: e.target.value })} className="field rounded-lg px-2 py-1 text-xs font-medium border" style={{ color: BRAND.text, background: BRAND.bgElevated, borderColor: BRAND.border }}>
-                                  {PERIOD_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-                                </select>
+                                <select value={item.period} onChange={(e) => updateItem(item.id, { period: e.target.value })} className="field rounded-lg px-2 py-1 text-xs font-medium border" style={{ color: BRAND.text, background: BRAND.bgElevated, borderColor: BRAND.border }}>{PERIOD_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}</select>
                               </div>
                             )}
                             {!readOnly && (
                               <div className="ml-auto flex items-center gap-0.5">
                                 <IconBtn icon={ChevronUp} onClick={() => moveItem(item.id, "up")} label="Move earlier" size={14} />
                                 <IconBtn icon={ChevronDown} onClick={() => moveItem(item.id, "down")} label="Move later" size={14} />
-                                <label className="rounded-lg p-1.5 cursor-pointer" title="Upload image">
-                                  <Camera size={14} color={BRAND.accent} />
-                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(item.id, e)} />
-                                </label>
+                                <label className="rounded-lg p-1.5 cursor-pointer" title="Upload image"><Camera size={14} color={BRAND.accent} /><input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(item.id, e)} /></label>
                                 <IconBtn icon={Trash2} onClick={() => removeItem(item.id, item.title)} label="Remove stop" tone="danger" />
                               </div>
                             )}
                           </div>
-                          {readOnly ? (
-                            <h3 className="font-display text-base sm:text-lg font-bold leading-snug break-words" style={{ color: BRAND.text }}>{item.title || "Untitled stop"}</h3>
-                          ) : (
-                            <TextInput value={item.title} onChange={(v) => updateItem(item.id, { title: v })} placeholder="What's happening" className="font-display font-semibold text-lg" />
-                          )}
+                          {readOnly ? <h3 className="font-display text-base sm:text-lg font-bold leading-snug break-words" style={{ color: BRAND.text }}>{item.title || "Untitled stop"}</h3> : <TextInput value={item.title} onChange={(v) => updateItem(item.id, { title: v })} placeholder="What's happening" className="font-display font-semibold text-lg" />}
                           <div className="mt-1.5 flex items-start gap-1.5 text-sm">
                             <MapPin size={13} className="mt-0.5 shrink-0" color={BRAND.bamboo} />
                             {readOnly ? <span className="break-words min-w-0 flex-1" style={{ color: BRAND.textMuted }}>{item.location || "—"}</span> : <TextInput value={item.location} onChange={(v) => updateItem(item.id, { location: v })} placeholder="Location" />}
@@ -1548,7 +1293,7 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
                           {(item.notes || !readOnly) && (
                             <div className="mt-3 pt-3 border-t" style={{ borderColor: BRAND.border }}>
                               <div className="text-[10px] uppercase tracking-[0.15em] font-bold mb-1.5" style={{ color: BRAND.textDim }}>Details</div>
-                              {readOnly ? <p className="text-sm whitespace-pre-line break-words leading-relaxed" style={{ color: BRAND.textMuted }}>{item.notes || "—"}</p> : <TextArea value={item.notes} onChange={(v) => updateItem(item.id, { notes: v })} placeholder="Details, what to bring, tips..." rows={2} />}
+                              {readOnly ? <p className="text-sm whitespace-pre-line break-words leading-relaxed" style={{ color: BRAND.textMuted }}>{item.notes || "—"}</p> : <TextArea value={item.notes} onChange={(v) => updateItem(item.id, { notes: v })} placeholder="Details..." rows={2} />}
                             </div>
                           )}
                           {(item.risk || !readOnly) && (
@@ -1557,55 +1302,393 @@ function Itinerary({ data, setData, confirmAction, readOnly }) {
                                 <AlertTriangle size={13} className="mt-0.5 shrink-0" color={item.risk ? BRAND.danger : BRAND.textDim} />
                                 <div className="flex-1 min-w-0">
                                   <div className="text-[10px] uppercase tracking-[0.15em] font-bold mb-0.5" style={{ color: item.risk ? BRAND.danger : BRAND.textDim }}>Backup plan / risk</div>
-                                  {readOnly ? <p className="text-xs break-words leading-relaxed" style={{ color: item.risk ? BRAND.dangerSoft : BRAND.textDim }}>{item.risk || "—"}</p> : <TextArea value={item.risk} onChange={(v) => updateItem(item.id, { risk: v })} placeholder="What if this fails? Backup plan..." rows={1} />}
+                                  {readOnly ? <p className="text-xs break-words leading-relaxed" style={{ color: item.risk ? BRAND.dangerSoft : BRAND.textDim }}>{item.risk || "—"}</p> : <TextArea value={item.risk} onChange={(v) => updateItem(item.id, { risk: v })} placeholder="Backup plan..." rows={1} />}
                                 </div>
                               </div>
                             </div>
                           )}
                         </div>
-                        {item.image && (
-                          <div className="sm:w-44 shrink-0 relative" style={{ minHeight: 140, background: BRAND.bgElevated }}>
-                            <img src={item.image} alt={item.title} className="w-full h-full sm:h-auto sm:absolute sm:inset-0 object-cover" />
-                          </div>
-                        )}
+                        {item.image && <div className="sm:w-44 shrink-0 relative" style={{ minHeight: 140, background: BRAND.bgElevated }}><img src={item.image} alt={item.title} className="w-full h-full sm:h-auto sm:absolute sm:inset-0 object-cover" /></div>}
                       </div>
                     </Card>
                   );
                 })}
               </div>
-              {!readOnly && (
-                <button onClick={() => addItem(day)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-semibold" style={{ borderColor: BRAND.borderLight, color: BRAND.textMuted }}>
-                  <Plus size={14} /> Add stop to Day {day}
-                </button>
-              )}
+              {!readOnly && <button onClick={() => addItem(day)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-semibold" style={{ borderColor: BRAND.borderLight, color: BRAND.textMuted }}><Plus size={14} /> Add stop to Day {day}</button>}
             </div>
           );
         })
       )}
-      {!readOnly && (
-        <button onClick={addDay} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-3 text-sm font-semibold" style={{ borderColor: BRAND.borderLight, color: BRAND.textMuted }}>
-          <Plus size={15} /> Add day {maxDay + 1}
-        </button>
-      )}
+      {!readOnly && <button onClick={addDay} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-3 text-sm font-semibold" style={{ borderColor: BRAND.borderLight, color: BRAND.textMuted }}><Plus size={15} /> Add day {maxDay + 1}</button>}
     </div>
   );
 }
 
-/* ============================== SPOTS ============================== */
+/* ============================== SPOT DETAIL ============================== */
 
-const SPOT_CATEGORIES = ["Viewpoint", "Village", "Nature", "Landmark", "Food"];
-const PRIORITIES = ["High", "Medium", "Low"];
+function SpotDetail({ spot, updateSpot, onBack, readOnly, editMode, setEditMode, openLightbox, confirmAction }) {
+  const Icon = SPOT_ICONS[spot.category] || Compass;
+  const priColor = PRIORITY_TONE[spot.priority] || BRAND.textMuted;
+  const gallery = Array.isArray(spot.gallery) ? spot.gallery : [];
+  const heroImage = spot.image || gallery[0] || "";
+  const readMin = readTimeOf([spot.description, spot.specialty, spot.originStory, spot.history, spot.tips].filter(Boolean).join(" "));
+  const allImages = [heroImage, ...gallery.filter((g) => g !== heroImage)].filter(Boolean);
+
+  const handleCoverUpload = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => updateSpot(spot.id, { image: reader.result });
+    reader.readAsDataURL(file);
+  };
+
+  const handleGalleryUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        updateSpot(spot.id, (prev) => ({ gallery: [...(prev.gallery || []), reader.result] }));
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+
+  const removeGalleryImage = (idx) => {
+    confirmAction({
+      title: "Remove this photo?",
+      message: "It will be permanently removed from the gallery.",
+      confirmLabel: "Remove",
+      onConfirm: () => {
+        const next = [...(spot.gallery || [])];
+        next.splice(idx, 1);
+        updateSpot(spot.id, { gallery: next });
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-4 pb-6">
+      <div className="flex items-center justify-between gap-3">
+        <button onClick={onBack} className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold" style={{ background: BRAND.bgElevated, color: BRAND.text, border: `1px solid ${BRAND.border}` }}>
+          <ChevronLeft size={14} /> All spots
+        </button>
+        {!readOnly && (
+          <button onClick={() => setEditMode(!editMode)} className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold"
+            style={editMode ? { background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)`, color: "#fff" } : { background: BRAND.bgElevated, color: BRAND.textMuted, border: `1px solid ${BRAND.border}` }}>
+            {editMode ? <><Check size={13} /> Done editing</> : <><Edit3 size={13} /> Edit article</>}
+          </button>
+        )}
+      </div>
+
+      <div className="relative w-full overflow-hidden rounded-2xl" style={{ minHeight: 340 }}>
+        {heroImage ? (
+          <>
+            <img src={heroImage} alt={spot.name} className="absolute inset-0 w-full h-full object-cover hero-zoom" />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(7,9,13,0.15) 0%, rgba(7,9,13,0.55) 45%, rgba(7,9,13,0.95) 100%)" }} />
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, #0A0D20 0%, #1A1435 45%, #7C2D12 85%, #C2410C 100%)` }} />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(7,9,13,0.05) 0%, rgba(7,9,13,0.35) 45%, rgba(7,9,13,0.95) 100%)" }} />
+          </>
+        )}
+        <div className="relative z-10 flex flex-col justify-end min-h-[340px] p-5 sm:p-8">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ background: "rgba(255,255,255,0.12)", color: "#fff", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)" }}>
+              <Icon size={11} /> {spot.category}
+            </span>
+            <span className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ background: priColor + "33", color: "#fff", border: `1px solid ${priColor}66` }}>{spot.priority} priority</span>
+            {spot.status === "visited" && (
+              <span className="flex items-center gap-1 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ background: BRAND.success + "33", color: "#fff", border: `1px solid ${BRAND.success}66` }}><CheckCircle2 size={10} /> Visited</span>
+            )}
+          </div>
+          {editMode ? (
+            <TextInput value={spot.name} onChange={(v) => updateSpot(spot.id, { name: v })} className="font-display font-bold !text-3xl sm:!text-4xl !px-3 !py-2 !bg-white/10 !border-white/20" />
+          ) : (
+            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">{spot.name || "Unnamed spot"}</h1>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-white/75">
+            <span className="flex items-center gap-1.5"><MapPin size={12} /> Sajek Valley</span>
+            <span className="flex items-center gap-1.5"><Clock size={12} /> {readMin} min read</span>
+            <span className="flex items-center gap-1.5"><Sparkles size={12} /> By Sajek Editorial</span>
+          </div>
+          {!readOnly && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <label className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-bold cursor-pointer" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)`, color: "#fff" }}>
+                <Camera size={12} /> {heroImage ? "Change cover" : "Add cover image"}
+                <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+              </label>
+              {heroImage && (
+                <button onClick={() => openLightbox(allImages, 0)} className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-bold" style={{ background: "rgba(255,255,255,0.14)", color: "#fff", border: "1px solid rgba(255,255,255,0.18)" }}>
+                  <ZoomIn size={12} /> View full
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Reveal>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <FactPill icon={CalendarDays} label="Best time" value={spot.bestTime || "Anytime"} />
+          <FactPill icon={Clock} label="Time needed" value={spot.time || "—"} />
+          <FactPill icon={Wallet} label="Est. cost" value={spot.cost ? fmt(spot.cost) : "Free"} />
+          <FactPill icon={CheckCircle2} label="Status" value={spot.status === "visited" ? "Visited" : "Planned"} />
+        </div>
+      </Reveal>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-6">
+          <Reveal>
+            <ArticleSection icon={FileText} eyebrow="Overview" title="About this place">
+              {editMode ? (
+                <TextArea value={spot.description || ""} onChange={(v) => updateSpot(spot.id, { description: v })} placeholder="A short overview..." rows={5} />
+              ) : (
+                <p className="text-[15px] leading-relaxed whitespace-pre-line" style={{ color: BRAND.text }}>{spot.description || "No description added yet."}</p>
+              )}
+            </ArticleSection>
+          </Reveal>
+          <Reveal delay={60}>
+            <ArticleSection icon={Award} eyebrow="What makes it special" title="Specialty & highlights" accent>
+              {editMode ? (
+                <TextArea value={spot.specialty || ""} onChange={(v) => updateSpot(spot.id, { specialty: v })} placeholder="What makes this place unique..." rows={4} />
+              ) : spot.specialty ? (
+                <div className="rounded-xl p-4 border glow-accent" style={{ background: BRAND.cardElevated, borderColor: BRAND.accent + "33" }}>
+                  <p className="text-[15px] leading-relaxed whitespace-pre-line" style={{ color: BRAND.text }}>{spot.specialty}</p>
+                </div>
+              ) : <p className="text-sm" style={{ color: BRAND.textDim }}>No specialty added yet.</p>}
+            </ArticleSection>
+          </Reveal>
+          <Reveal delay={120}>
+            <ArticleSection icon={Sparkles} eyebrow="The story" title="Origin story">
+              {editMode ? (
+                <TextArea value={spot.originStory || ""} onChange={(v) => updateSpot(spot.id, { originStory: v })} placeholder="The origin story..." rows={5} />
+              ) : spot.originStory ? (
+                <blockquote className="relative pl-6 py-2 my-2" style={{ borderLeft: `3px solid ${BRAND.accent}` }}>
+                  <Quote size={28} className="absolute -left-1 -top-2 opacity-20" color={BRAND.accent} />
+                  <p className="font-display italic text-lg leading-relaxed whitespace-pre-line" style={{ color: BRAND.text }}>{spot.originStory}</p>
+                </blockquote>
+              ) : <p className="text-sm" style={{ color: BRAND.textDim }}>No origin story added yet.</p>}
+            </ArticleSection>
+          </Reveal>
+          <Reveal delay={180}>
+            <ArticleSection icon={History} eyebrow="Background" title="History">
+              {editMode ? (
+                <TextArea value={spot.history || ""} onChange={(v) => updateSpot(spot.id, { history: v })} placeholder="Historical background..." rows={4} />
+              ) : (
+                <p className="text-[15px] leading-relaxed whitespace-pre-line" style={{ color: BRAND.text }}>{spot.history || "No history added yet."}</p>
+              )}
+            </ArticleSection>
+          </Reveal>
+        </div>
+
+        <div className="space-y-4">
+          <Reveal delay={100}>
+            <Card className="p-4" style={{ borderColor: BRAND.warning + "33" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="rounded-lg p-1.5" style={{ background: BRAND.warning + "18" }}><Lightbulb size={14} color={BRAND.warning} /></div>
+                <div>
+                  <div className="text-[9px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Visiting tips</div>
+                  <div className="text-sm font-bold" style={{ color: BRAND.text }}>Good to know</div>
+                </div>
+              </div>
+              {editMode ? (
+                <TextArea value={spot.tips || ""} onChange={(v) => updateSpot(spot.id, { tips: v })} placeholder="One tip per line..." rows={5} />
+              ) : spot.tips ? (
+                <ul className="space-y-2">
+                  {spot.tips.split("\n").filter(Boolean).map((t, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: BRAND.textMuted }}>
+                      <span className="mt-1.5 h-1 w-1 rounded-full shrink-0" style={{ background: BRAND.warning }} />
+                      <span className="min-w-0">{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-xs" style={{ color: BRAND.textDim }}>No tips added yet.</p>}
+            </Card>
+          </Reveal>
+
+          {!readOnly && editMode && (
+            <Reveal delay={140}>
+              <Card className="p-4">
+                <div className="text-[10px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color: BRAND.textDim }}>Edit fields</div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>Best time</label>
+                    <TextInput value={spot.bestTime || ""} onChange={(v) => updateSpot(spot.id, { bestTime: v })} placeholder="e.g. Sunrise" className="mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>Category</label>
+                    <select value={spot.category} onChange={(e) => updateSpot(spot.id, { category: e.target.value })} className="field w-full rounded-lg px-2 py-1.5 text-sm border mt-1" style={{ color: BRAND.text, background: BRAND.bgElevated, borderColor: BRAND.border }}>
+                      {SPOT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>Priority</label>
+                    <select value={spot.priority} onChange={(e) => updateSpot(spot.id, { priority: e.target.value })} className="field w-full rounded-lg px-2 py-1.5 text-sm border mt-1" style={{ color: BRAND.text, background: BRAND.bgElevated, borderColor: BRAND.border }}>
+                      {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>Time needed</label>
+                    <TextInput value={spot.time || ""} onChange={(v) => updateSpot(spot.id, { time: v })} placeholder="e.g. ~1-2 hrs" className="mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>Est. cost</label>
+                    <NumberInput value={spot.cost || 0} onChange={(v) => updateSpot(spot.id, { cost: v })} className="mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: BRAND.textDim }}>Short note (card teaser)</label>
+                    <TextArea value={spot.notes || ""} onChange={(v) => updateSpot(spot.id, { notes: v })} rows={2} className="mt-1" />
+                  </div>
+                  <button onClick={() => updateSpot(spot.id, { status: spot.status === "visited" ? "planned" : "visited" })} className="w-full rounded-xl px-4 py-2 text-xs font-bold" style={{ background: spot.status === "visited" ? BRAND.success + "22" : BRAND.bgElevated, color: spot.status === "visited" ? BRAND.success : BRAND.textMuted, border: `1px solid ${spot.status === "visited" ? BRAND.success + "44" : BRAND.border}` }}>
+                    {spot.status === "visited" ? "✓ Marked as Visited" : "Mark as Visited"}
+                  </button>
+                </div>
+              </Card>
+            </Reveal>
+          )}
+        </div>
+      </div>
+
+      <Reveal delay={80}>
+        <div className="pt-2">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>Gallery</div>
+              <div className="font-display text-lg font-semibold" style={{ color: BRAND.text }}>{gallery.length} {gallery.length === 1 ? "photo" : "photos"}</div>
+            </div>
+            {!readOnly && editMode && (
+              <label className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-bold cursor-pointer" style={{ background: BRAND.accent + "22", color: BRAND.accent, border: `1px solid ${BRAND.accent}44` }}>
+                <Plus size={12} /> Add photos
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
+              </label>
+            )}
+          </div>
+          {gallery.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-8 text-center" style={{ borderColor: BRAND.borderLight }}>
+              <ImageIcon size={26} color={BRAND.textDim} className="mx-auto" />
+              <p className="mt-2 text-sm" style={{ color: BRAND.textMuted }}>No gallery photos yet.</p>
+              {!readOnly && editMode && (
+                <label className="mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold cursor-pointer" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)`, color: "#fff" }}>
+                  <Plus size={12} /> Add your first photo
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
+                </label>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+              {gallery.map((g, i) => (
+                <div key={i} className="relative group rounded-xl overflow-hidden aspect-square" style={{ background: BRAND.bgElevated, border: `1px solid ${BRAND.border}` }}>
+                  <img src={g} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover cursor-pointer transition-transform duration-500 group-hover:scale-105" onClick={() => openLightbox(allImages, i + (heroImage ? 1 : 0))} />
+                  {!readOnly && editMode && (
+                    <button onClick={(e) => { e.stopPropagation(); removeGalleryImage(i); }} className="absolute top-2 right-2 rounded-full p-1.5 opacity-0 group-hover:opacity-100" style={{ background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.15)" }}>
+                      <Trash2 size={12} color={BRAND.danger} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Reveal>
+
+      <Reveal delay={120}>
+        <div className="flex items-center justify-center pt-4">
+          <button onClick={onBack} className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold" style={{ background: BRAND.bgElevated, color: BRAND.text, border: `1px solid ${BRAND.border}` }}>
+            <ChevronLeft size={16} /> Back to all spots
+          </button>
+        </div>
+      </Reveal>
+    </div>
+  );
+}
+
+function FactPill({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-xl px-3.5 py-3 border" style={{ background: BRAND.card, borderColor: BRAND.border }}>
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon size={11} color={BRAND.accent} />
+        <span className="text-[9px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>{label}</span>
+      </div>
+      <div className="text-sm font-bold truncate" style={{ color: BRAND.text }}>{value}</div>
+    </div>
+  );
+}
+
+function ArticleSection({ icon: Icon, eyebrow, title, accent = false, children }) {
+  return (
+    <section>
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="rounded-lg p-2" style={{ background: accent ? BRAND.accent + "22" : BRAND.bgElevated }}><Icon size={14} color={BRAND.accent} /></div>
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: BRAND.textDim }}>{eyebrow}</div>
+          <h2 className="font-display text-xl font-bold" style={{ color: BRAND.text }}>{title}</h2>
+        </div>
+      </div>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+/* ============================== SPOTS LIST ============================== */
 
 function Spots({ data, setData, confirmAction, readOnly }) {
   const [filter, setFilter] = useState("all");
+  const [activeSpotId, setActiveSpotId] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [lightboxState, setLightboxState] = useState({ images: [], index: null });
 
-  const updateSpot = (id, patch) => setData((d) => ({ ...d, spots: d.spots.map((s) => (s.id === id ? { ...s, ...patch } : s)) }));
-  const handleImageUpload = (id, e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => updateSpot(id, { image: reader.result }); reader.readAsDataURL(file); };
-  const addSpot = () => setData((d) => ({ ...d, spots: [...d.spots, { id: uid("s"), name: "New spot", category: "Viewpoint", priority: "Medium", time: "", cost: 0, status: "planned", notes: "", image: "" }] }));
-  const removeSpot = (id, name) => confirmAction({ title: "Remove spot?", message: '"' + (name || "This spot") + '" will be removed from your plan.', confirmLabel: "Remove", onConfirm: () => setData((d) => ({ ...d, spots: d.spots.filter((s) => s.id !== id) })) });
+  const updateSpot = (id, patchOrFn) => setData((d) => ({
+    ...d,
+    spots: d.spots.map((s) => {
+      if (s.id !== id) return s;
+      const patch = typeof patchOrFn === "function" ? patchOrFn(s) : patchOrFn;
+      return { ...s, ...patch };
+    }),
+  }));
+
+  const removeSpot = (id, name) => confirmAction({
+    title: "Remove spot?",
+    message: '"' + (name || "This spot") + '" will be removed from your plan.',
+    confirmLabel: "Remove",
+    onConfirm: () => setData((d) => ({ ...d, spots: d.spots.filter((s) => s.id !== id) })),
+  });
+
+  const addSpot = () => setData((d) => ({ ...d, spots: [...d.spots, makeEmptySpot()] }));
+
+  const openLightbox = (images, index) => setLightboxState({ images, index });
+  const closeLightbox = () => setLightboxState({ images: [], index: null });
+  const prevLightbox = () => setLightboxState((s) => ({ ...s, index: (s.index - 1 + s.images.length) % s.images.length }));
+  const nextLightbox = () => setLightboxState((s) => ({ ...s, index: (s.index + 1) % s.images.length }));
+
+  const activeSpot = activeSpotId ? data.spots.find((s) => s.id === activeSpotId) : null;
+
+  if (activeSpot) {
+    return (
+      <>
+        <SpotDetail
+          spot={activeSpot}
+          data={data}
+          updateSpot={updateSpot}
+          onBack={() => { setActiveSpotId(null); setEditMode(false); }}
+          readOnly={readOnly}
+          editMode={editMode}
+          setEditMode={setEditMode}
+          openLightbox={openLightbox}
+          confirmAction={confirmAction}
+        />
+        <Lightbox images={lightboxState.images} index={lightboxState.index} onClose={closeLightbox} onPrev={prevLightbox} onNext={nextLightbox} />
+      </>
+    );
+  }
 
   const visible = data.spots.filter((s) => filter === "all" || s.status === filter);
   const priorityColors = { High: BRAND.danger, Medium: BRAND.warning, Low: BRAND.info };
+
+  const handleCardClick = (e, spotId) => {
+    if (e.target.closest("button, input, select, textarea, label, a")) return;
+    setActiveSpotId(spotId);
+  };
 
   return (
     <div className="space-y-4">
@@ -1613,6 +1696,7 @@ function Spots({ data, setData, confirmAction, readOnly }) {
         <Segmented small value={filter} onChange={setFilter} options={[{ value: "all", label: "All" }, { value: "planned", label: "Planned" }, { value: "visited", label: "Visited" }]} />
         {!readOnly && <IconBtn icon={Plus} onClick={addSpot} label="Add spot" tone="accent" />}
       </div>
+
       {visible.length === 0 ? (
         <EmptyState icon={Compass} title="Nothing here yet" message="Add viewpoints, food stops, or resorts to build your Sajek shortlist." />
       ) : (
@@ -1622,7 +1706,7 @@ function Spots({ data, setData, confirmAction, readOnly }) {
             const visited = s.status === "visited";
             const priColor = priorityColors[s.priority] || BRAND.textMuted;
             return (
-              <Card key={s.id} className="overflow-hidden flex flex-col" hover>
+              <Card key={s.id} className="overflow-hidden flex flex-col cursor-pointer transition-transform hover:scale-[1.01]" hover onClick={(e) => handleCardClick(e, s.id)}>
                 <div className="relative w-full h-44 shrink-0" style={{ background: BRAND.bgElevated }}>
                   {s.image ? <img src={s.image} alt={s.name} className="w-full h-full object-cover" /> : (
                     <div className="w-full h-full flex flex-col items-center justify-center" style={{ color: BRAND.textDim }}>
@@ -1630,26 +1714,30 @@ function Spots({ data, setData, confirmAction, readOnly }) {
                       {!readOnly && <span className="mt-1 text-[10px] uppercase tracking-[0.15em] font-bold">No image yet</span>}
                     </div>
                   )}
-                  <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, transparent 60%, rgba(7,9,13,0.6) 100%)" }} />
+                  <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, transparent 60%, rgba(7,9,13,0.65) 100%)" }} />
                   {!readOnly && (
-                    <label className="absolute top-2 right-2 backdrop-blur rounded-full p-2 shadow cursor-pointer transition-transform hover:scale-110 border" style={{ background: "rgba(0,0,0,0.6)", borderColor: "rgba(255,255,255,0.1)" }} title="Upload image">
+                    <label className="absolute top-2 right-2 rounded-full p-2 cursor-pointer z-10" style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.15)" }} onClick={(e) => e.stopPropagation()}>
                       <Camera size={13} color={BRAND.accent} />
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(s.id, e)} />
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => updateSpot(s.id, { image: reader.result }); reader.readAsDataURL(file); }} />
                     </label>
                   )}
                   {visited && (
-                    <span className="absolute top-2 left-2 flex items-center gap-1 rounded-full backdrop-blur px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: "rgba(34,197,94,0.9)" }}>
-                      <CheckCircle2 size={10} /> Visited
-                    </span>
+                    <span className="absolute top-2 left-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white z-10" style={{ background: "rgba(34,197,94,0.9)" }}><CheckCircle2 size={10} /> Visited</span>
                   )}
+                  <div className="absolute bottom-2 right-2 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/90" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.15)" }}>Read article →</div>
                 </div>
                 <div className="p-4 flex-1 flex flex-col">
                   <div className="flex items-start gap-2">
                     <div className="rounded-lg p-1.5 shrink-0" style={{ background: BRAND.accent + "18" }}><Icon size={13} color={BRAND.accent} /></div>
-                    {readOnly ? <h3 className="font-display font-bold text-base leading-snug break-words min-w-0 flex-1" style={{ color: BRAND.text }}>{s.name || "Unnamed spot"}</h3> : <TextInput value={s.name} onChange={(v) => updateSpot(s.id, { name: v })} className="font-semibold text-base" />}
-                    {!readOnly && <IconBtn icon={Trash2} onClick={() => removeSpot(s.id, s.name)} label="Remove spot" tone="danger" />}
+                    {readOnly ? <h3 className="font-display font-bold text-base leading-snug break-words min-w-0 flex-1" style={{ color: BRAND.text }}>{s.name || "Unnamed spot"}</h3> : (
+                      <div className="min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+                        <TextInput value={s.name} onChange={(v) => updateSpot(s.id, { name: v })} className="font-semibold text-base" />
+                      </div>
+                    )}
+                    {!readOnly && <div onClick={(e) => e.stopPropagation()}><IconBtn icon={Trash2} onClick={() => removeSpot(s.id, s.name)} label="Remove spot" tone="danger" /></div>}
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {s.notes && <p className="mt-2 text-xs leading-relaxed line-clamp-2" style={{ color: BRAND.textMuted }}>{s.notes}</p>}
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     {readOnly ? (
                       <>
                         <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" style={{ background: BRAND.bgElevated, color: BRAND.textMuted, border: `1px solid ${BRAND.border}` }}>{s.category}</span>
@@ -1669,7 +1757,7 @@ function Spots({ data, setData, confirmAction, readOnly }) {
                       </>
                     )}
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 min-w-0 border" style={{ background: BRAND.bgElevated, borderColor: BRAND.border }}>
                       <Clock size={12} className="shrink-0" color={BRAND.bamboo} />
                       {readOnly ? <span className="truncate" style={{ color: BRAND.textMuted }}>{s.time || "—"}</span> : <TextInput value={s.time} onChange={(v) => updateSpot(s.id, { time: v })} placeholder="Time needed" />}
@@ -1679,11 +1767,6 @@ function Spots({ data, setData, confirmAction, readOnly }) {
                       {readOnly ? <span className="truncate" style={{ color: BRAND.textMuted }}>{s.cost ? fmt(s.cost) : "Free"}</span> : <NumberInput value={s.cost} onChange={(v) => updateSpot(s.id, { cost: v })} placeholder="Est. cost" />}
                     </div>
                   </div>
-                  {(s.notes || !readOnly) && (
-                    <div className="mt-3 flex-1">
-                      {readOnly ? <p className="text-xs whitespace-pre-line break-words leading-relaxed" style={{ color: BRAND.textMuted }}>{s.notes || "—"}</p> : <TextArea value={s.notes} onChange={(v) => updateSpot(s.id, { notes: v })} placeholder="Details about this spot..." rows={3} />}
-                    </div>
-                  )}
                 </div>
               </Card>
             );
@@ -1745,35 +1828,15 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
       });
       resetImport();
     };
-    if (mode === "replace") confirmAction({ title: "Replace participant list?", message: "This overwrites every current traveler with the imported list.", confirmLabel: "Replace", onConfirm: doImport });
+    if (mode === "replace") confirmAction({ title: "Replace participant list?", message: "This overwrites every current traveler.", confirmLabel: "Replace", onConfirm: doImport });
     else doImport();
   };
 
   const exportExcel = () => {
     const t = computeTotals(data);
     const wb = XLSX.utils.book_new();
-    const participantsSheet = data.participants.map((p) => ({ Name: p.name, Contribution: p.contribution, Paid: num(Number(p.paid)), Remaining: num(Number(p.contribution)) - num(Number(p.paid)), "Total Share": Math.round(personTotalShare(p, t, data)), Balance: Math.round(num(p.contribution) - personTotalShare(p, t, data)) }));
-    const expenseSheet = t.catTotals.map((c) => ({ Category: c.name, Mode: c.mode, Total: Math.round(c.total), Paid: Math.round(num(Number(c.paidAmount))), Remaining: Math.round(c.total - num(Number(c.paidAmount))), Notes: c.note || "" }));
-    const foodSheet = data.foodItems.map((f) => ({ Item: f.name, "Amount / Person": f.amount }));
-    const itinerarySheet = data.itinerary.map((i) => ({ Day: i.day, Period: i.period, Time: i.time, Activity: i.title, Location: i.location, Notes: i.notes, Risk: i.risk }));
-    const spotsSheet = data.spots.map((s) => ({ Name: s.name, Category: s.category, Priority: s.priority, "Time Needed": s.time, "Est. Cost": s.cost, Status: s.status, Notes: s.notes }));
-    const paymentsSheet = [];
-    data.participants.forEach((p) => { (p.payments || []).forEach((pay) => { paymentsSheet.push({ Traveler: p.name, Amount: pay.amount, Date: pay.date || "", Note: pay.note || "" }); }); });
-    const summarySheet = [
-      { Metric: "Total Collected", Value: t.totalContribution },
-      { Metric: "Total Received", Value: t.totalPaid },
-      { Metric: "Total Planned Expense", Value: t.totalExpense },
-      { Metric: "Total Expense Paid", Value: t.totalExpensePaid },
-      { Metric: "Emergency Reserve", Value: t.reserve },
-      { Metric: "Per Person (avg)", Value: Math.round(t.perPersonAvg) },
-    ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summarySheet), "Summary");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(participantsSheet), "Participants");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenseSheet), "Expenses");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(foodSheet), "Food Breakdown");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(itinerarySheet), "Itinerary");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(spotsSheet), "Spots");
-    if (paymentsSheet.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(paymentsSheet), "Payments");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ Metric: "Total Collected", Value: t.totalContribution }, { Metric: "Total Received", Value: t.totalPaid }, { Metric: "Total Planned Expense", Value: t.totalExpense }, { Metric: "Total Expense Paid", Value: t.totalExpensePaid }, { Metric: "Emergency Reserve", Value: t.reserve }]), "Summary");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.participants.map((p) => ({ Name: p.name, Contribution: p.contribution, Paid: num(Number(p.paid)) }))), "Participants");
     XLSX.writeFile(wb, "sajek-valley-trip.xlsx");
   };
 
@@ -1785,23 +1848,12 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
     URL.revokeObjectURL(url);
   };
 
-  const exportCsv = () => {
-    const t = computeTotals(data);
-    const csv = Papa.unparse(data.participants.map((p) => ({ Name: p.name, Contribution: p.contribution, Paid: num(Number(p.paid)), Remaining: num(Number(p.contribution)) - num(Number(p.paid)), "Total Share": Math.round(personTotalShare(p, t, data)), Balance: Math.round(num(p.contribution) - personTotalShare(p, t, data)) })));
-    downloadBlob(csv, "sajek-participants.csv", "text/csv");
-  };
-
   const exportJson = () => downloadBlob(JSON.stringify(data, null, 2), "sajek-trip-backup.json", "application/json");
 
   const MAPPING_FIELDS = [
     { value: "ignore", label: "Ignore" },
     { value: "name", label: "Traveler name" },
     { value: "contribution", label: "Contribution" },
-    { value: "bus", label: "Bus (info only)" },
-    { value: "cg", label: "CG (info only)" },
-    { value: "food", label: "Food (info only)" },
-    { value: "others", label: "Others (info only)" },
-    { value: "hotel", label: "Hotel (info only)" },
   ];
 
   return (
@@ -1812,39 +1864,15 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
           <div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={onDrop} onClick={() => fileRef.current && fileRef.current.click()} className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 text-center" style={{ borderColor: dragOver ? BRAND.accent : BRAND.borderLight, background: dragOver ? BRAND.accent + "10" : "transparent" }}>
             {busy ? <Loader2 size={22} className="animate-spin" color={BRAND.accent} /> : <Upload size={22} color={BRAND.accent} />}
             <p className="mt-2 text-sm font-semibold" style={{ color: BRAND.text }}>Drop a file or tap to browse</p>
-            <p className="mt-0.5 text-xs" style={{ color: BRAND.textDim }}>CSV, XLSX, or JSON</p>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.json" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
           </div>
           {error && <p className="mt-2 text-xs" style={{ color: BRAND.danger }}>{error}</p>}
           {rows && (
             <div className="mt-4 space-y-3">
-              <div className="flex items-center gap-1.5 text-xs" style={{ color: BRAND.textMuted }}><FileSpreadsheet size={13} /> {fileName} · {rows.length} rows</div>
-              <div className="overflow-x-auto rounded-xl border" style={{ borderColor: BRAND.border }}>
-                <table className="w-full text-xs" style={{ minWidth: 420 }}>
-                  <thead>
-                    <tr style={{ background: BRAND.bgElevated }}>
-                      {headers.map((h) => (
-                        <th key={h} className="p-2 font-medium text-left" style={{ color: BRAND.textDim }}>
-                          <div>{h}</div>
-                          <select value={mapping[h]} onChange={(e) => setMapping((m) => ({ ...m, [h]: e.target.value }))} className="field mt-1 rounded-md px-1 py-0.5 text-xs border" style={{ background: BRAND.card, color: BRAND.text, borderColor: BRAND.border }}>
-                            {MAPPING_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                          </select>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.slice(0, 5).map((r, i) => (
-                      <tr key={i} className="border-t" style={{ borderColor: BRAND.border }}>
-                        {headers.map((h) => <td key={h} className="p-2" style={{ color: BRAND.text }}>{String(r[h])}</td>)}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <div className="text-xs" style={{ color: BRAND.textMuted }}>{fileName} · {rows.length} rows</div>
               <div className="flex flex-wrap gap-2">
-                <button disabled={!nameCol} onClick={() => runImport("merge")} className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>Merge into current list</button>
-                <button disabled={!nameCol} onClick={() => runImport("replace")} className="rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-40" style={{ color: BRAND.danger, border: "1px solid " + BRAND.danger + "44" }}>Replace list</button>
+                <button disabled={!nameCol} onClick={() => runImport("merge")} className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>Merge</button>
+                <button disabled={!nameCol} onClick={() => runImport("replace")} className="rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-40" style={{ color: BRAND.danger, border: "1px solid " + BRAND.danger + "44" }}>Replace</button>
                 <button onClick={resetImport} className="rounded-xl px-4 py-2 text-sm font-semibold" style={{ color: BRAND.textMuted, border: `1px solid ${BRAND.border}` }}>Cancel</button>
               </div>
             </div>
@@ -1853,9 +1881,8 @@ function DataTab({ data, setData, confirmAction, readOnly }) {
       )}
       <Card className="p-4">
         <SectionHeading eyebrow="Take it with you" title="Export" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button onClick={exportExcel} className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: `linear-gradient(135deg, ${BRAND.success} 0%, #16A34A 100%)` }}><FileSpreadsheet size={15} /> Excel (.xlsx)</button>
-          <button onClick={exportCsv} className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: `linear-gradient(135deg, ${BRAND.info} 0%, #2563EB 100%)` }}><Download size={15} /> CSV</button>
           <button onClick={exportJson} className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: `linear-gradient(135deg, ${BRAND.dusk} 0%, #7C3AED 100%)` }}><FileJson size={15} /> JSON backup</button>
         </div>
       </Card>
@@ -1890,8 +1917,7 @@ export default function App() {
   const totals = computeTotals(data);
   const askConfirm = (cfg) => setConfirmState(Object.assign({ open: true }, cfg));
   const closeConfirm = () => setConfirmState({ open: false });
-
-  const resetAll = () => askConfirm({ title: "Reset for everyone?", message: "This replaces the shared trip data with the original defaults.", confirmLabel: "Reset for everyone", onConfirm: () => setData(DEFAULT_DATA) });
+  const resetAll = () => askConfirm({ title: "Reset for everyone?", message: "This replaces the shared trip data with the original defaults.", confirmLabel: "Reset", onConfirm: () => setData(DEFAULT_DATA) });
 
   if (tripStatus === "loading" || credentialsStatus === "loading") return <LoadingScreen />;
 
@@ -1901,9 +1927,7 @@ export default function App() {
         <style>{GLOBAL_CSS}</style>
         <div className="w-full max-w-sm rounded-2xl p-6 sm:p-8 border" style={{ background: BRAND.card, borderColor: BRAND.border, boxShadow: `0 30px 80px rgba(0,0,0,0.6), 0 0 60px ${BRAND.accent}10` }}>
           <div className="flex flex-col items-center">
-            <div className="rounded-2xl p-3 mb-3" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)`, boxShadow: `0 8px 24px ${BRAND.accent}44` }}>
-              <Mountain size={26} color="#fff" />
-            </div>
+            <div className="rounded-2xl p-3 mb-3" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)`, boxShadow: `0 8px 24px ${BRAND.accent}44` }}><Mountain size={26} color="#fff" /></div>
             <h1 className="font-display text-2xl font-bold text-center" style={{ color: BRAND.text }}>{data.meta?.title || "Sajek Valley"}</h1>
             <p className="text-xs mt-1" style={{ color: BRAND.textMuted }}>Log in to continue</p>
           </div>
@@ -1929,7 +1953,7 @@ export default function App() {
             <input name="username" type="text" placeholder="Username" required className="field w-full rounded-xl px-4 py-2.5 text-sm border" style={{ background: BRAND.bgElevated, color: BRAND.text, borderColor: BRAND.border }} />
             <input name="password" type="password" placeholder="Password" required className="field w-full rounded-xl px-4 py-2.5 text-sm border" style={{ background: BRAND.bgElevated, color: BRAND.text, borderColor: BRAND.border }} />
             {loginError && <p className="text-xs" style={{ color: BRAND.danger }}>{loginError}</p>}
-            <button type="submit" className="w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.01]" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)`, boxShadow: `0 8px 24px ${BRAND.accent}44` }}>Log in</button>
+            <button type="submit" className="w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>Log in</button>
           </form>
           <p className="mt-4 text-center text-xs" style={{ color: BRAND.textDim }}>Shared credentials — ask your trip organiser.</p>
         </div>
@@ -1948,9 +1972,7 @@ export default function App() {
       <div className="sticky top-0 z-30 border-b" style={{ background: BRAND.bg + "F2", borderColor: BRAND.border, backdropFilter: "blur(12px)" }}>
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="rounded-lg p-1.5 shrink-0" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}>
-              <Mountain size={14} color="#fff" />
-            </div>
+            <div className="rounded-lg p-1.5 shrink-0" style={{ background: `linear-gradient(135deg, ${BRAND.accent} 0%, ${BRAND.accentSoft} 100%)` }}><Mountain size={14} color="#fff" /></div>
             <span className="font-display text-sm sm:text-base font-bold truncate" style={{ color: BRAND.text }}>{data.meta.title || "Sajek Valley"}</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -1961,7 +1983,7 @@ export default function App() {
             </span>
             <div className="flex items-center gap-1">
               {!readOnly && <IconBtn icon={RotateCcw} onClick={resetAll} label="Reset shared trip" />}
-              <button onClick={() => { setRole(null); setLoggedInMemberId(null); try { localStorage.removeItem("trip_role"); localStorage.removeItem("trip_member_id"); } catch {} }} className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors" style={{ color: BRAND.textMuted, background: BRAND.bgElevated, border: `1px solid ${BRAND.border}` }}>Log out</button>
+              <button onClick={() => { setRole(null); setLoggedInMemberId(null); try { localStorage.removeItem("trip_role"); localStorage.removeItem("trip_member_id"); } catch {} }} className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ color: BRAND.textMuted, background: BRAND.bgElevated, border: `1px solid ${BRAND.border}` }}>Log out</button>
             </div>
           </div>
         </div>
@@ -1983,7 +2005,7 @@ export default function App() {
         <div className="mx-auto max-w-3xl px-4 pt-3">
           <div className="flex items-start gap-2 rounded-xl p-3 text-sm border" style={{ background: BRAND.danger + "10", borderColor: BRAND.danger + "33", color: BRAND.dangerSoft }}>
             <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-            <span>Can't reach the shared trip database right now. Check your Firebase setup.</span>
+            <span>Can't reach the shared trip database right now.</span>
           </div>
         </div>
       )}
